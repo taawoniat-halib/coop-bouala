@@ -1,0 +1,75 @@
+rules_version = '2';
+
+// Firestore security rules for the milk cooperative app.
+// After creating the Firebase project, paste these into
+// Firebase Console -> Firestore Database -> Rules (or deploy with the
+// Firebase CLI: `firebase deploy --only firestore:rules`).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && role() == 'admin';
+    }
+
+    // Every user can read their own profile; only admins can list/manage all
+    // users and change roles. Users are created via the app's admin-only
+    // "create user" flow, never public self-signup.
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() &&
+        (request.auth.uid == userId || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    // Settings (coop name, logo, currency, phone): everyone signed-in can
+    // read, only admins can write.
+    match /settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Operational data: any signed-in role can read; writes require
+    // admin/collector for field data, admin/accountant for financial data.
+    match /members/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && role() in ['admin', 'collector'];
+    }
+
+    match /transporters/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && role() in ['admin', 'collector'];
+    }
+
+    match /prices/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /milk_received/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && role() in ['admin', 'collector'];
+    }
+
+    match /milk_delivered/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && role() in ['admin', 'collector'];
+    }
+
+    match /incomes/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && role() in ['admin', 'accountant'];
+    }
+
+    match /expenses/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && role() in ['admin', 'accountant'];
+    }
+  }
+}

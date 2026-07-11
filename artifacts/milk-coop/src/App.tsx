@@ -1,30 +1,60 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
+import NotFound from '@/pages/not-found';
+import SignIn from '@/pages/sign-in';
+import Dashboard from '@/pages/dashboard';
+import SettingsPage from '@/pages/settings';
+import Members from '@/pages/members';
+import Transporters from '@/pages/transporters';
+import Milk from '@/pages/milk';
+import Budget from '@/pages/budget';
+import Reports from '@/pages/reports';
+import { AuthProvider } from '@/hooks/useAuth';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const queryClient = new QueryClient();
-
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Replit Agent is building...
-        </h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Your app will appear here once it's ready.
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/sign-in" component={SignIn} />
+      <Route path="/">
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute roles={['admin']}>
+          <SettingsPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/members">
+        <ProtectedRoute roles={['admin', 'collector']}>
+          <Members />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/transporters">
+        <ProtectedRoute roles={['admin', 'collector']}>
+          <Transporters />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/milk">
+        <ProtectedRoute roles={['admin', 'collector']}>
+          <Milk />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/budget">
+        <ProtectedRoute roles={['admin', 'accountant']}>
+          <Budget />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/reports">
+        <ProtectedRoute roles={['admin', 'accountant']}>
+          <Reports />
+        </ProtectedRoute>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -33,12 +63,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

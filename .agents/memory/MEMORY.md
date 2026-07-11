@@ -1,0 +1,1 @@
+- [Firebase-backed react-vite artifact](firebase-client-only-artifact.md) — when user insists on Firebase specifically, build client-only Firestore/Auth/Storage inside a react-vite artifact instead of our Postgres/api-server.
