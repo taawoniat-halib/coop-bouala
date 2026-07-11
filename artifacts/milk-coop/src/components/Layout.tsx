@@ -93,7 +93,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           ) : (
             <Droplets className="h-6 w-6 text-primary ml-3" />
           )}
-          <h1 className="text-lg font-bold text-foreground truncate">{settings?.coopName || 'تعاونية الحليب'}</h1>
+          <h1 className="text-lg font-bold text-foreground truncate">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
         </div>
         <div className="flex-1 overflow-y-auto">
           <NavLinks />
@@ -122,7 +122,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ) : (
               <Droplets className="h-6 w-6 text-primary" />
             )}
-            <h1 className="text-lg font-bold truncate">{settings?.coopName || 'تعاونية الحليب'}</h1>
+            <h1 className="text-lg font-bold truncate">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
           </div>
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>

@@ -6,7 +6,7 @@ import type { Settings } from '@/lib/types';
 const SETTINGS_DOC = doc(db, 'settings', 'main');
 
 const DEFAULT_SETTINGS: Settings = {
-  coopName: 'تعاونية الحليب',
+  coopName: 'تعاونية كوب بوعلا',
   currency: 'MAD',
 };
 

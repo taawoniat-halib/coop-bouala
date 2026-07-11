@@ -43,7 +43,7 @@ export default function SignIn() {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
             <Droplets className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">تعاونية الحليب</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">تعاونية كوب بوعلا</h1>
           <p className="mt-2 text-sm text-muted-foreground">نظام إدارة وتتبع التعاونية</p>
         </div>
 
