@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "تعاونية الحليب"
+version = "1.0.0"
+id = "artifacts/milk-coop"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24925
+
+[services.development]
+run = "pnpm --filter @workspace/milk-coop run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/milk-coop", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/milk-coop/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24925"
+BASE_PATH = "/"
