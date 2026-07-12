@@ -20,8 +20,8 @@ import { Link, useLocation } from 'wouter';
     { href: '/members',      label: 'الفلاحون',      icon: Users,          roles: ['admin', 'collector'] },
     { href: '/milk',         label: 'الحليب',         icon: Droplets,       roles: ['admin', 'collector', 'accountant'] },
     { href: '/transporters', label: 'الناقلون',       icon: Truck,          roles: ['admin'] },
-    { href: '/budget',       label: 'الميزانية',      icon: Calculator,     roles: ['admin'] },
-    { href: '/reports',      label: 'التقارير',       icon: FileText,       roles: ['admin'] },
+    { href: '/budget',       label: 'الميزانية',      icon: Calculator,     roles: ['admin', 'accountant'] },
+    { href: '/reports',      label: 'التقارير',       icon: FileText,       roles: ['admin', 'accountant'] },
     { href: '/settings',     label: 'الإعدادات',      icon: SettingsIcon,   roles: ['admin'] },
   ];
 

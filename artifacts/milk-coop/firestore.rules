@@ -14,7 +14,12 @@ rules_version = '2';
 
       match /users/{userId} {
         allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-        allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        // المستخدم يمكنه إنشاء سجل لنفسه فقط بدور محصّل (collector)
+        // المدير يمكنه إنشاء أي حساب بأي دور
+        allow create: if isSignedIn() && (
+          (request.auth.uid == userId && request.resource.data.role == 'collector') ||
+          isAdmin()
+        );
         allow update, delete: if isAdmin();
       }
       match /settings/{docId} {
@@ -57,4 +62,3 @@ rules_version = '2';
       }
     }
   }
-  

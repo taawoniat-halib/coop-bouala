@@ -3,7 +3,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useUsers } from '@/hooks/useData';
 import { adminCreateUser } from '@/lib/adminCreateUser';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useState, useRef, useEffect } from 'react';
 import { 
   Card, CardContent, CardHeader, CardTitle, CardDescription 
@@ -76,6 +76,12 @@ export default function SettingsPage() {
 
     setIsUploading(true);
     try {
+      // حذف الشعار القديم من Storage لتجنب تراكم الملفات
+      if (settings?.logoUrl) {
+        try {
+          await deleteObject(ref(storage, settings.logoUrl));
+        } catch { /* قد لا يكون الملف القديم موجوداً — نتجاهل الخطأ */ }
+      }
       const storageRef = ref(storage, `logos/coop-logo-${Date.now()}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);

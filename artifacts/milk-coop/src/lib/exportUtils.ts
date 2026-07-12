@@ -236,19 +236,16 @@ import jsPDF from 'jspdf';
     win.document.write(html);
     win.document.close();
     win.focus();
-    // Wait for the document to fully render before triggering print
-    win.onload = () => {
-      setTimeout(() => win.print(), 300);
-    };
-    // Fallback: if onload already fired (some browsers), use a longer delay
-    setTimeout(() => {
-      if (!win.closed) {
-        // Only call print if onload hasn't already triggered it
-        // Using a flag via the window object
-        if (!(win as any).__printed) {
-          (win as any).__printed = true;
-          win.print();
-        }
+
+    // Guard: print only once regardless of which trigger fires first
+    const printOnce = () => {
+      if (!(win as any).__printed) {
+        (win as any).__printed = true;
+        win.print();
       }
-    }, 1500);
+    };
+    // Primary: fire after document fully loads
+    win.onload = () => setTimeout(printOnce, 300);
+    // Fallback: some browsers fire onload before write() finishes
+    setTimeout(() => { if (!win.closed) printOnce(); }, 1500);
   }

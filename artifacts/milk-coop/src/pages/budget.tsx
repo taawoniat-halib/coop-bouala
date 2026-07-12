@@ -232,7 +232,7 @@ export default function Budget() {
                     {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString()} {currency}
                   </TableCell>
                   <TableCell className="text-left">
-                    <Button variant="ghost" size="icon" onClick={() => tx.type === 'income' ? removeIncome(tx.id) : removeExpense(tx.id)} className="h-8 w-8 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive">
+                    <Button variant="ghost" size="icon" onClick={() => tx.type === 'income' ? removeIncome(tx.id) : removeExpense(tx.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
