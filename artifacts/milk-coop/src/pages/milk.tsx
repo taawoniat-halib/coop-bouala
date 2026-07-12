@@ -1,13 +1,14 @@
 import { Layout } from '@/components/Layout';
-import { useMilkReceived, useMilkDelivered, useMembers, useTransporters, usePrices } from '@/hooks/useData';
-import { useState, useMemo } from 'react';
+import { useMilkReceived, useMilkDelivered, useMembers, usePrices } from '@/hooks/useData';
+import { useAuth } from '@/hooks/useAuth';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Droplets, ArrowUpRight, ArrowDownRight, Coins } from 'lucide-react';
+import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Coins } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,8 +29,8 @@ export default function Milk() {
   const { data: deliveries, add: addDelivery, remove: removeDelivery } = useMilkDelivered();
   const { data: prices, add: addPrice, update: updatePrice } = usePrices();
   const { data: members } = useMembers();
-  const { data: transporters } = useTransporters();
   const { settings } = useSettings();
+  const { appUser } = useAuth();
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState('received');
@@ -38,7 +39,7 @@ export default function Milk() {
 
   const [receiptForm, setReceiptForm] = useState({
     memberId: '',
-    transporterId: 'none',
+    transportCost: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     quantityLiters: '',
     fat: '',
@@ -59,36 +60,48 @@ export default function Milk() {
   });
   const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false);
 
+  // Auto-populate memberId if the logged-in user is linked to a member
+  useEffect(() => {
+    if (appUser?.memberId) {
+      setReceiptForm(prev => ({ ...prev, memberId: appUser.memberId! }));
+    }
+  }, [appUser?.memberId]);
+
   const activeMembers = members.filter(m => m.active);
-  const activeTransporters = transporters.filter(t => t.active);
+  const isCollectorWithMember = !!(appUser?.memberId && appUser.role === 'collector');
 
   const filteredReceipts = useMemo(() => {
+    if (!dateFilter) return [];
     return receipts.filter(r => r.date === dateFilter);
   }, [receipts, dateFilter]);
 
   const filteredDeliveries = useMemo(() => {
+    if (!dateFilter) return [];
     return deliveries.filter(d => d.date === dateFilter);
   }, [deliveries, dateFilter]);
 
   const handleReceiptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!receiptForm.memberId) return toast({ variant: 'destructive', title: 'خطأ', description: 'يجب اختيار العضو' });
-
-    // Always use the current date at the moment of saving (not the date the
-    // form happened to open on) so entries never get logged under a stale
-    // day if the app was left open across midnight.
+    if (!receiptForm.memberId) return toast({ variant: 'destructive', title: 'خطأ', description: 'يجب اختيار الفلاح' });
     const today = format(new Date(), 'yyyy-MM-dd');
     try {
       await addReceipt({
         memberId: receiptForm.memberId,
-        transporterId: receiptForm.transporterId === 'none' ? undefined : receiptForm.transporterId,
+        transportCost: receiptForm.transportCost ? Number(receiptForm.transportCost) : undefined,
         date: today,
         quantityLiters: Number(receiptForm.quantityLiters),
         fat: receiptForm.fat ? Number(receiptForm.fat) : undefined,
         notes: receiptForm.notes
       });
       toast({ title: 'تم', description: 'تم تسجيل استلام الحليب بنجاح.' });
-      setReceiptForm(prev => ({ ...prev, memberId: '', quantityLiters: '', fat: '', notes: '' }));
+      setReceiptForm(prev => ({
+        ...prev,
+        memberId: isCollectorWithMember ? prev.memberId : '',
+        transportCost: '',
+        quantityLiters: '',
+        fat: '',
+        notes: ''
+      }));
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'خطأ', description: err.message });
     }
@@ -96,7 +109,6 @@ export default function Milk() {
 
   const handleDeliverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Same as receipts: stamp with the date at save time, not page-load time.
     const today = format(new Date(), 'yyyy-MM-dd');
     try {
       await addDelivery({
@@ -131,19 +143,21 @@ export default function Milk() {
   };
 
   const getMemberName = (id: string) => members.find(m => m.id === id)?.fullName || 'غير معروف';
-  const getTransporterName = (id?: string) => {
-    if (!id) return 'تسليم مباشر';
-    return transporters.find(t => t.id === id)?.fullName || 'غير معروف';
-  };
 
-  const currentMonthPrice = prices.find(p => p.month === monthKey(dateFilter))?.pricePerLiter || 0;
+  const currentMonthPrice = dateFilter
+    ? prices.find(p => p.month === monthKey(dateFilter))?.pricePerLiter || 0
+    : 0;
+
+  const dateLabel = dateFilter
+    ? format(new Date(dateFilter + 'T00:00:00'), 'dd/MM/yyyy')
+    : '—';
 
   return (
     <Layout>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">إدارة الحليب</h2>
-          <p className="text-muted-foreground mt-1">تسجيل الاستلام من الأعضاء والتسليم للشركات</p>
+          <p className="text-muted-foreground mt-1">تسجيل الاستلام من الفلاحين والتسليم للشركات</p>
         </div>
         <div className="flex items-center gap-3">
           <Input 
@@ -161,7 +175,7 @@ export default function Milk() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>تحديد ثمن شراء الحليب من الأعضاء</DialogTitle>
+                <DialogTitle>تحديد ثمن شراء الحليب من الفلاحين</DialogTitle>
               </DialogHeader>
               <form onSubmit={handlePriceSubmit} className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -170,21 +184,16 @@ export default function Milk() {
                     type="month" 
                     value={priceForm.month} 
                     onChange={(e) => setPriceForm({ ...priceForm, month: e.target.value })}
-                    required 
-                    dir="ltr"
+                    required dir="ltr"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>الثمن للتر الواحد ({currency})</Label>
                   <Input 
-                    type="number" 
-                    step="0.01" 
-                    min="0"
+                    type="number" step="0.01" min="0"
                     value={priceForm.pricePerLiter} 
                     onChange={(e) => setPriceForm({ ...priceForm, pricePerLiter: e.target.value })}
-                    required 
-                    dir="ltr"
-                    className="text-right"
+                    required dir="ltr" className="text-right"
                   />
                 </div>
                 <DialogFooter>
@@ -199,7 +208,7 @@ export default function Milk() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6 max-w-md h-12">
           <TabsTrigger value="received" className="gap-2 text-base">
-            <ArrowDownRight className="h-4 w-4" /> استلام (أعضاء)
+            <ArrowDownRight className="h-4 w-4" /> استلام (فلاحون)
           </TabsTrigger>
           <TabsTrigger value="delivered" className="gap-2 text-base">
             <ArrowUpRight className="h-4 w-4" /> تسليم (شركات)
@@ -216,58 +225,76 @@ export default function Milk() {
                 سيتم تسجيله تلقائياً بتاريخ اليوم: <span className="font-semibold">{format(new Date(), 'dd/MM/yyyy')}</span>
               </p>
               <form onSubmit={handleReceiptSubmit} className="space-y-4">
+                {isCollectorWithMember ? (
+                  <div className="space-y-2">
+                    <Label>الفلاح</Label>
+                    <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">
+                      {getMemberName(receiptForm.memberId)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>الفلاح</Label>
+                    <Select value={receiptForm.memberId} onValueChange={(val) => setReceiptForm({ ...receiptForm, memberId: val })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر الفلاح" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeMembers.map(m => (
+                          <SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <Label>العضو</Label>
-                  <Select value={receiptForm.memberId} onValueChange={(val) => setReceiptForm({ ...receiptForm, memberId: val })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر العضو" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activeMembers.map(m => (
-                        <SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>الناقل (اختياري)</Label>
-                  <Select value={receiptForm.transporterId} onValueChange={(val) => setReceiptForm({ ...receiptForm, transporterId: val })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="تسليم مباشر" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">تسليم مباشر (بدون ناقل)</SelectItem>
-                      {activeTransporters.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.fullName} - {t.vehicle}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>ثمن النقل للتر ({currency})</Label>
+                  <Input 
+                    type="number" step="0.01" min="0" placeholder="0.00" dir="ltr"
+                    className="text-right font-mono"
+                    value={receiptForm.transportCost}
+                    onChange={(e) => setReceiptForm({ ...receiptForm, transportCost: e.target.value })}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>الكمية (لتر)</Label>
                     <Input 
-                      type="number" step="0.5" min="0" required dir="ltr" className="text-right font-mono text-lg"
-                      value={receiptForm.quantityLiters} 
+                      type="number" step="0.5" min="0" required dir="ltr"
+                      className="text-right font-mono text-lg"
+                      value={receiptForm.quantityLiters}
                       onChange={(e) => setReceiptForm({ ...receiptForm, quantityLiters: e.target.value })}
+                      placeholder="0"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الدهون % (اختياري)</Label>
+                    <Label>نسبة الدهن %</Label>
                     <Input 
-                      type="number" step="0.1" min="0" dir="ltr" className="text-right font-mono"
-                      value={receiptForm.fat} 
+                      type="number" step="0.1" min="0" max="100" dir="ltr"
+                      className="text-right font-mono"
+                      value={receiptForm.fat}
                       onChange={(e) => setReceiptForm({ ...receiptForm, fat: e.target.value })}
+                      placeholder="0.0"
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full mt-2">تسجيل الاستلام</Button>
+                <div className="space-y-2">
+                  <Label>ملاحظات</Label>
+                  <Input 
+                    value={receiptForm.notes}
+                    onChange={(e) => setReceiptForm({ ...receiptForm, notes: e.target.value })}
+                    placeholder="ملاحظات اختيارية..."
+                  />
+                </div>
+                <Button type="submit" className="w-full gap-2">
+                  <Plus className="h-4 w-4" /> تسجيل الاستلام
+                </Button>
               </form>
             </div>
 
             <div className="md:col-span-2 rounded-xl border border-border bg-card overflow-hidden shadow-sm flex flex-col">
               <div className="p-4 border-b border-border bg-muted/20 flex justify-between items-center">
-                <h3 className="font-semibold">سجل الاستلام ليوم {format(new Date(dateFilter), 'dd/MM/yyyy')}</h3>
+                <h3 className="font-semibold">سجل الاستلام ليوم {dateLabel}</h3>
                 <div className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
                   المجموع: {filteredReceipts.reduce((sum, r) => sum + r.quantityLiters, 0).toLocaleString()} لتر
                 </div>
@@ -276,25 +303,31 @@ export default function Milk() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>العضو</TableHead>
-                      <TableHead>الناقل</TableHead>
+                      <TableHead>الفلاح</TableHead>
                       <TableHead>الكمية</TableHead>
-                      <TableHead>الدهون</TableHead>
+                      <TableHead>الدهن %</TableHead>
+                      <TableHead>ثمن النقل/لتر</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredReceipts.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">لا يوجد سجلات لهذا اليوم</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          لا يوجد استلامات لهذا اليوم
+                        </TableCell>
+                      </TableRow>
                     ) : (
                       filteredReceipts.map(r => (
-                        <TableRow key={r.id} className="group">
+                        <TableRow key={r.id}>
                           <TableCell className="font-medium">{getMemberName(r.memberId)}</TableCell>
-                          <TableCell className="text-muted-foreground">{getTransporterName(r.transporterId)}</TableCell>
                           <TableCell className="font-mono font-bold text-primary">{r.quantityLiters} لتر</TableCell>
-                          <TableCell className="font-mono">{r.fat ? `${r.fat}%` : '-'}</TableCell>
+                          <TableCell className="font-mono text-muted-foreground">{r.fat ? `${r.fat}%` : '—'}</TableCell>
+                          <TableCell className="font-mono text-muted-foreground">
+                            {r.transportCost ? `${r.transportCost} ${currency}` : '—'}
+                          </TableCell>
                           <TableCell className="text-left">
-                            <Button variant="ghost" size="icon" onClick={() => removeReceipt(r.id)} className="h-8 w-8 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive">
+                            <Button variant="ghost" size="icon" onClick={() => removeReceipt(r.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TableCell>
@@ -312,7 +345,7 @@ export default function Milk() {
           <div className="grid md:grid-cols-3 gap-6">
             <div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm">
               <h3 className="font-semibold text-lg mb-1 flex items-center gap-2 border-b pb-2">
-                <Plus className="h-5 w-5 text-emerald-500" /> تسجيل تسليم للشركات
+                <Plus className="h-5 w-5 text-emerald-600" /> تسجيل تسليم جديد
               </h3>
               <p className="text-xs text-muted-foreground mb-4">
                 سيتم تسجيله تلقائياً بتاريخ اليوم: <span className="font-semibold">{format(new Date(), 'dd/MM/yyyy')}</span>
@@ -321,43 +354,51 @@ export default function Milk() {
                 <div className="space-y-2">
                   <Label>اسم الشركة</Label>
                   <Input 
-                    required 
-                    value={deliveryForm.companyName} 
+                    value={deliveryForm.companyName}
                     onChange={(e) => setDeliveryForm({ ...deliveryForm, companyName: e.target.value })}
+                    placeholder="مثال: شركة دانون"
+                    required
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>الكمية (لتر)</Label>
                     <Input 
-                      type="number" step="0.5" min="0" required dir="ltr" className="text-right font-mono text-lg"
-                      value={deliveryForm.quantityLiters} 
+                      type="number" step="0.5" min="0" required dir="ltr"
+                      className="text-right font-mono text-lg"
+                      value={deliveryForm.quantityLiters}
                       onChange={(e) => setDeliveryForm({ ...deliveryForm, quantityLiters: e.target.value })}
+                      placeholder="0"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الثمن / لتر</Label>
+                    <Label>الثمن للتر</Label>
                     <Input 
-                      type="number" step="0.01" min="0" required dir="ltr" className="text-right font-mono"
-                      value={deliveryForm.pricePerLiter} 
+                      type="number" step="0.01" min="0" required dir="ltr"
+                      className="text-right font-mono"
+                      value={deliveryForm.pricePerLiter}
                       onChange={(e) => setDeliveryForm({ ...deliveryForm, pricePerLiter: e.target.value })}
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>ملاحظات</Label>
                   <Input 
-                    value={deliveryForm.notes} 
+                    value={deliveryForm.notes}
                     onChange={(e) => setDeliveryForm({ ...deliveryForm, notes: e.target.value })}
+                    placeholder="ملاحظات اختيارية..."
                   />
                 </div>
-                <Button type="submit" className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700">تسجيل التسليم</Button>
+                <Button type="submit" className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+                  <Plus className="h-4 w-4" /> تسجيل التسليم
+                </Button>
               </form>
             </div>
 
             <div className="md:col-span-2 rounded-xl border border-border bg-card overflow-hidden shadow-sm flex flex-col">
               <div className="p-4 border-b border-border bg-muted/20 flex justify-between items-center">
-                <h3 className="font-semibold">سجل التسليم ليوم {format(new Date(dateFilter), 'dd/MM/yyyy')}</h3>
+                <h3 className="font-semibold">سجل التسليم ليوم {dateLabel}</h3>
                 <div className="text-sm font-medium bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full">
                   المجموع: {filteredDeliveries.reduce((sum, d) => sum + d.quantityLiters, 0).toLocaleString()} لتر
                 </div>
@@ -375,10 +416,14 @@ export default function Milk() {
                   </TableHeader>
                   <TableBody>
                     {filteredDeliveries.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">لا يوجد تسليمات لهذا اليوم</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          لا يوجد تسليمات لهذا اليوم
+                        </TableCell>
+                      </TableRow>
                     ) : (
                       filteredDeliveries.map(d => (
-                        <TableRow key={d.id} className="group">
+                        <TableRow key={d.id}>
                           <TableCell className="font-medium">{d.companyName}</TableCell>
                           <TableCell className="font-mono font-bold text-emerald-600">{d.quantityLiters} لتر</TableCell>
                           <TableCell className="font-mono">{d.pricePerLiter} {currency}</TableCell>
@@ -386,7 +431,7 @@ export default function Milk() {
                             {(d.quantityLiters * d.pricePerLiter).toLocaleString()} {currency}
                           </TableCell>
                           <TableCell className="text-left">
-                            <Button variant="ghost" size="icon" onClick={() => removeDelivery(d.id)} className="h-8 w-8 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive">
+                            <Button variant="ghost" size="icon" onClick={() => removeDelivery(d.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TableCell>
