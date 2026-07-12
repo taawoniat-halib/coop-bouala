@@ -34,8 +34,6 @@ function Router() {
           <Members />
         </ProtectedRoute>
       </Route>
-        </ProtectedRoute>
-      </Route>
       <Route path="/milk">
         <ProtectedRoute roles={['admin', 'collector', 'accountant']}>
           <Milk />
