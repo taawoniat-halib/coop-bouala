@@ -277,9 +277,9 @@ export default function SettingsPage() {
                 </TableHeader>
                 <TableBody>
                   {usersLoading ? (
-                    <TableRow><TableCell colSpan={3} className="text-center py-4 text-muted-foreground">جاري التحميل...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center py-4 text-muted-foreground">جاري التحميل...</TableCell></TableRow>
                   ) : users?.length === 0 ? (
-                    <TableRow><TableCell colSpan={3} className="text-center py-4 text-muted-foreground">لا يوجد مستخدمين</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center py-4 text-muted-foreground">لا يوجد مستخدمين</TableCell></TableRow>
                   ) : (
                     users?.map(user => (
                       <TableRow key={user.id}>
@@ -305,6 +305,17 @@ export default function SettingsPage() {
                               </SelectItem>
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteUser(user.id)}
+                            title="حذف المستخدم"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
