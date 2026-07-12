@@ -6,7 +6,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Role } from '@/lib/types';
+import type { AppUser, Role } from '@/lib/types';
 
 const config = __FIREBASE_CONFIG__;
 
@@ -15,12 +15,16 @@ const config = __FIREBASE_CONFIG__;
  * currently signed-in admin's session. Firebase's client SDK normally signs
  * in as whichever user was just created, so this spins up a throwaway
  * secondary app instance to do the sign-up, then tears it down.
+ *
+ * `extra` merges additional fields onto the created user doc, e.g.
+ * `{ transporterId }` to link a transporter's own login to their record.
  */
 export async function adminCreateUser(
   email: string,
   password: string,
   displayName: string,
   role: Role,
+  extra: Partial<AppUser> = {},
 ) {
   const secondaryApp = initializeApp(config, `admin-create-${Date.now()}`);
   try {
@@ -36,6 +40,7 @@ export async function adminCreateUser(
       email,
       displayName,
       role,
+      ...extra,
       createdAt: serverTimestamp(),
     });
     await secondaryAuth.signOut();

@@ -6,6 +6,8 @@ export interface AppUser {
   displayName?: string;
   role: Role;
   createdAt: number;
+  /** Set when this login belongs to a transporter, links back to their record. */
+  transporterId?: string;
 }
 
 export interface Settings {

@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { Transporter } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { adminCreateUser } from '@/lib/adminCreateUser';
 
 export default function Transporters() {
   const { data: transporters, loading, add, update, remove } = useTransporters();
@@ -37,6 +38,9 @@ export default function Transporters() {
     vehicle: '',
     costPerLiter: '',
     active: true,
+    createAccount: false,
+    email: '',
+    password: '',
   });
 
   const filteredTransporters = useMemo(() => {
@@ -57,6 +61,9 @@ export default function Transporters() {
         vehicle: transporter.vehicle || '',
         costPerLiter: String(transporter.costPerLiter),
         active: transporter.active,
+        createAccount: false,
+        email: '',
+        password: '',
       });
     } else {
       setEditingId(null);
@@ -66,6 +73,9 @@ export default function Transporters() {
         vehicle: '',
         costPerLiter: '',
         active: true,
+        createAccount: false,
+        email: '',
+        password: '',
       });
     }
     setIsDialogOpen(true);
@@ -74,16 +84,28 @@ export default function Transporters() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
-      ...formData,
+      fullName: formData.fullName,
+      phone: formData.phone,
+      vehicle: formData.vehicle,
       costPerLiter: Number(formData.costPerLiter) || 0,
+      active: formData.active,
     };
-    
+
     try {
       if (editingId) {
         await update(editingId, payload);
         toast({ title: 'تم التحديث', description: 'تم تحديث بيانات الناقل بنجاح.' });
       } else {
-        await add(payload);
+        const docRef = await add(payload);
+        if (formData.createAccount) {
+          await adminCreateUser(
+            formData.email,
+            formData.password,
+            formData.fullName,
+            'collector',
+            { transporterId: docRef.id },
+          );
+        }
         toast({ title: 'تمت الإضافة', description: 'تمت إضافة الناقل بنجاح.' });
       }
       setIsDialogOpen(false);
@@ -176,6 +198,49 @@ export default function Transporters() {
                 />
                 <Label htmlFor="active">حالة الناقل (نشط)</Label>
               </div>
+
+              {!editingId && (
+                <div className="space-y-4 border-t border-border pt-4 mt-2">
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <Switch
+                      id="createAccount"
+                      checked={formData.createAccount}
+                      onCheckedChange={(checked) => setFormData({ ...formData, createAccount: checked })}
+                    />
+                    <Label htmlFor="createAccount">إنشاء حساب دخول لهذا الناقل</Label>
+                  </div>
+                  {formData.createAccount && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="transporterEmail">البريد الإلكتروني (Gmail)</Label>
+                        <Input
+                          id="transporterEmail"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          required={formData.createAccount}
+                          dir="ltr"
+                          className="text-right"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="transporterPassword">الكود (كلمة المرور)</Label>
+                        <Input
+                          id="transporterPassword"
+                          type="password"
+                          minLength={6}
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          required={formData.createAccount}
+                          dir="ltr"
+                          className="text-right"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               <DialogFooter className="pt-4">
                 <Button type="submit" className="w-full">حفظ</Button>
               </DialogFooter>
