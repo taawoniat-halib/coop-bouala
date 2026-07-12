@@ -351,9 +351,11 @@ export default function Milk() {
                             {r.transportCost ? `${r.transportCost} ${currency}` : '—'}
                           </TableCell>
                           <TableCell className="text-left">
-                            <Button variant="ghost" size="icon" onClick={() => removeReceipt(r.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {!isCollectorWithMember && (
+                              <Button variant="ghost" size="icon" onClick={() => removeReceipt(r.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
@@ -455,9 +457,11 @@ export default function Milk() {
                             {(d.quantityLiters * d.pricePerLiter).toLocaleString()} {currency}
                           </TableCell>
                           <TableCell className="text-left">
-                            <Button variant="ghost" size="icon" onClick={() => removeDelivery(d.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {!isCollectorWithMember && (
+                              <Button variant="ghost" size="icon" onClick={() => removeDelivery(d.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
