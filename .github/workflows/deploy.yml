@@ -23,13 +23,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: artifacts/milk-coop/pnpm-lock.yaml
+          node-version: '24'
 
       - name: Install dependencies
         working-directory: artifacts/milk-coop
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build
         working-directory: artifacts/milk-coop
