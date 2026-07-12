@@ -8,6 +8,24 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import logo from '@/assets/logo.png';
 
+function mapFirebaseError(code: string): string {
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+    case 'auth/invalid-email':
+      return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+    case 'auth/too-many-requests':
+      return 'تم تجاوز عدد المحاولات المسموح بها. يرجى المحاولة مجدداً بعد قليل.';
+    case 'auth/network-request-failed':
+      return 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت.';
+    case 'auth/user-disabled':
+      return 'تم تعطيل هذا الحساب. يرجى التواصل مع المسؤول.';
+    default:
+      return 'حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.';
+  }
+}
+
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +47,8 @@ export default function SignIn() {
       await signIn(email, password);
       setLocation('/');
     } catch (err: any) {
-      setError(err.message || 'حدث خطأ أثناء تسجيل الدخول. يرجى التحقق من بياناتك.');
+      const code = err?.code || '';
+      setError(mapFirebaseError(code));
     } finally {
       setIsSubmitting(false);
     }
