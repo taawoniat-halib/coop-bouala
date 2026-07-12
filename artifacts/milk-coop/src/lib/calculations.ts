@@ -132,6 +132,37 @@ export function computeDashboardSummary(
   };
 }
 
+export interface MonthlyStockBalance {
+  receivedLiters: number;
+  deliveredLiters: number;
+  balanceLiters: number;
+}
+
+/**
+ * Milk received vs. delivered for a month, and the difference between them.
+ * Milk is perishable and normally sold the same day, so the balance should
+ * stay close to zero — a growing positive balance can mean unsold/unrecorded
+ * stock, and a negative balance can mean deliveries were recorded without a
+ * matching receipt. Useful as a sanity check, not a literal warehouse count.
+ */
+export function computeMonthlyStockBalance(
+  receipts: MilkReceived[],
+  deliveries: MilkDelivered[],
+  month: string,
+): MonthlyStockBalance {
+  const receivedLiters = receipts
+    .filter((r) => monthKey(r.date) === month)
+    .reduce((sum, r) => sum + r.quantityLiters, 0);
+  const deliveredLiters = deliveries
+    .filter((d) => monthKey(d.date) === month)
+    .reduce((sum, d) => sum + d.quantityLiters, 0);
+  return {
+    receivedLiters,
+    deliveredLiters,
+    balanceLiters: receivedLiters - deliveredLiters,
+  };
+}
+
 /** Total liters delivered to companies grouped by company, for a month. */
 export function deliveredByCompany(
   deliveries: MilkDelivered[],

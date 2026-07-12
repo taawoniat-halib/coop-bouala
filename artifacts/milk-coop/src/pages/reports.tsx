@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { 
   computeMemberMonthlyStatements, 
   deliveredByCompany, 
+  computeMonthlyStockBalance,
   monthKey 
 } from '@/lib/calculations';
 import { 
@@ -57,6 +58,10 @@ export default function Reports() {
     return deliveredByCompany(deliveries, monthFilter)
       .sort((a, b) => b.liters - a.liters);
   }, [deliveries, monthFilter]);
+
+  const stockBalance = useMemo(() => {
+    return computeMonthlyStockBalance(receipts, deliveries, monthFilter);
+  }, [receipts, deliveries, monthFilter]);
 
   const totalMembersNet = memberStatements.reduce((sum, st) => sum + st.netAmount, 0);
   const totalCompanyAmount = companyDeliveries.reduce((sum, d) => sum + d.amount, 0);
@@ -345,6 +350,47 @@ export default function Reports() {
                     </TableBody>
                   </Table>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">ميزان الحليب — {monthFilter}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/40">
+                    <span className="text-sm text-muted-foreground">الكمية المستلمة من الفلاحين</span>
+                    <span className="font-mono font-bold text-xl">{stockBalance.receivedLiters.toLocaleString()} لتر</span>
+                  </div>
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/40">
+                    <span className="text-sm text-muted-foreground">الكمية المسلمة للشركات</span>
+                    <span className="font-mono font-bold text-xl">{stockBalance.deliveredLiters.toLocaleString()} لتر</span>
+                  </div>
+                  <div className={`flex flex-col gap-1 p-3 rounded-lg ${
+                    stockBalance.balanceLiters === 0
+                      ? 'bg-muted/40'
+                      : stockBalance.balanceLiters > 0
+                        ? 'bg-amber-500/10'
+                        : 'bg-destructive/10'
+                  }`}>
+                    <span className="text-sm text-muted-foreground">الفارق (مستلم − مسلَّم)</span>
+                    <span className={`font-mono font-bold text-xl ${
+                      stockBalance.balanceLiters === 0
+                        ? ''
+                        : stockBalance.balanceLiters > 0
+                          ? 'text-amber-600'
+                          : 'text-destructive'
+                    }`}>
+                      {stockBalance.balanceLiters > 0 ? '+' : ''}{stockBalance.balanceLiters.toLocaleString()} لتر
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-4">
+                  الحليب سلعة قابلة للتلف وعادةً ما تُباع في نفس اليوم، لذا يُفترض أن يبقى هذا الفارق قريبًا من الصفر.
+                  فارق موجب متكرر قد يعني حليبًا غير مُسجَّل كتسليم أو مخزّنًا لدى التعاونية، وفارق سالب قد يعني تسليمات
+                  سُجِّلت دون استلام مقابل لها — راجعوا السجلات في حال ظهر فارق كبير.
+                </p>
               </CardContent>
             </Card>
 
