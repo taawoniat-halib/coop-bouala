@@ -17,13 +17,19 @@ import { Link, useLocation } from 'wouter';
 
   const navItems: NavItem[] = [
     { href: '/',             label: 'لوحة القيادة', icon: LayoutDashboard, roles: ['admin'] },
-    { href: '/members',      label: 'الفلاحون',      icon: Users,          roles: ['admin'] },
+    { href: '/members',      label: 'الفلاحون',      icon: Users,          roles: ['admin', 'collector'] },
     { href: '/milk',         label: 'الحليب',         icon: Droplets,       roles: ['admin', 'collector', 'accountant'] },
     { href: '/transporters', label: 'الناقلون',       icon: Truck,          roles: ['admin'] },
     { href: '/budget',       label: 'الميزانية',      icon: Calculator,     roles: ['admin'] },
     { href: '/reports',      label: 'التقارير',       icon: FileText,       roles: ['admin'] },
     { href: '/settings',     label: 'الإعدادات',      icon: SettingsIcon,   roles: ['admin'] },
   ];
+
+  function roleLabel(role?: Role): string {
+    if (role === 'admin') return 'Administrateur';
+    if (role === 'accountant') return 'Comptable';
+    return 'Collecteur';
+  }
 
   export function Layout({ children }: { children: React.ReactNode }) {
     const [location] = useLocation();
@@ -66,8 +72,6 @@ import { Link, useLocation } from 'wouter';
       </nav>
     );
 
-    const roleLabel = appUser?.role === 'admin' ? 'مدير' : appUser?.role === 'accountant' ? 'محاسب' : 'جامع الحليب';
-
     return (
       <div className="flex min-h-[100dvh] w-full bg-background font-sans" dir="rtl">
         <aside className="hidden w-64 flex-col border-l border-border bg-card md:flex">
@@ -84,7 +88,7 @@ import { Link, useLocation } from 'wouter';
               </div>
               <div className="flex flex-col overflow-hidden">
                 <span className="truncate text-sm font-medium">{appUser?.displayName || appUser?.email}</span>
-                <span className="text-xs text-muted-foreground">{roleLabel}</span>
+                <span className="text-xs text-muted-foreground">{roleLabel(appUser?.role)}</span>
               </div>
             </div>
           </div>
@@ -97,7 +101,7 @@ import { Link, useLocation } from 'wouter';
               <div className="flex flex-col">
                 <h1 className="text-base font-bold truncate leading-tight">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
                 {appUser?.displayName && (
-                  <span className="text-xs text-muted-foreground truncate">{appUser.displayName} · {roleLabel}</span>
+                  <span className="text-xs text-muted-foreground truncate">{appUser.displayName} · {roleLabel(appUser?.role)}</span>
                 )}
               </div>
             </div>
