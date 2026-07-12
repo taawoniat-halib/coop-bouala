@@ -62,6 +62,7 @@ jobs:
       - name: توليد أيقونات التطبيق بـ ImageMagick
         working-directory: artifacts/milk-coop
         run: |
+          sudo apt-get install -y imagemagick -q
           ICON="resources/icon.png"
           RES="android/app/src/main/res"
           for entry in "mdpi:48" "hdpi:72" "xhdpi:96" "xxhdpi:144" "xxxhdpi:192"; do
