@@ -41,7 +41,7 @@ export function computeMemberMonthlyStatements(
   prices: Price[],
   month: string,
 ): MemberMonthlyStatement[] {
-  const price = priceForMonth(prices, month);
+  const monthPrice = priceForMonth(prices, month);
   const transporterById = new Map(transporters.map((t) => [t.id, t]));
 
   return members.map((member) => {
@@ -52,6 +52,11 @@ export function computeMemberMonthlyStatements(
       (sum, r) => sum + r.quantityLiters,
       0,
     );
+    // Each receipt may have its own pricePerLiter; fall back to monthly price
+    const grossAmount = memberReceipts.reduce((sum, r) => {
+      return sum + r.quantityLiters * (r.pricePerLiter ?? monthPrice);
+    }, 0);
+    const effectivePrice = totalLiters > 0 ? grossAmount / totalLiters : monthPrice;
     const transportCost = memberReceipts.reduce((sum, r) => {
       if (r.transportCost !== undefined) {
         // transportCost is the total cost for the whole delivery
@@ -63,13 +68,12 @@ export function computeMemberMonthlyStatements(
         : undefined;
       return sum + r.quantityLiters * (transporter?.costPerLiter ?? 0);
     }, 0);
-    const grossAmount = totalLiters * price;
     return {
       memberId: member.id,
       memberName: member.fullName,
       month,
       totalLiters,
-      pricePerLiter: price,
+      pricePerLiter: effectivePrice,
       grossAmount,
       transportCost,
       netAmount: grossAmount - transportCost,
