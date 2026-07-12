@@ -24,12 +24,21 @@ name: Build & Deploy to GitHub Pages
           uses: actions/setup-node@v4
           with:
             node-version: '24'
+            cache: 'pnpm'
 
+        # Install all workspace packages from the repo root so catalog: and
+        # workspace:* dependencies resolve correctly.
         - name: Install dependencies
-          working-directory: artifacts/milk-coop
           run: pnpm install
 
-        - name: Build
+        # Build shared composite libs (api-spec, api-client-react, etc.)
+        - name: Build workspace libs
+          run: pnpm run typecheck:libs
+
+        # Build the milk-coop Vite app. PORT and BASE_PATH are required by
+        # vite.config.ts; Firebase variables are injected via define and
+        # pulled from GitHub Actions Variables (Settings → Variables and secrets).
+        - name: Build milk-coop
           working-directory: artifacts/milk-coop
           env:
             PORT: "3000"
