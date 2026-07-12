@@ -61,6 +61,10 @@ export default function Milk() {
   });
   const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false);
 
+  const currentMonthPrice = dateFilter
+    ? prices.find(p => p.month === monthKey(dateFilter))?.pricePerLiter || 0
+    : 0;
+
   // Auto-populate memberId if the logged-in user is linked to a member
   useEffect(() => {
     if (appUser?.memberId) {
@@ -153,10 +157,6 @@ export default function Milk() {
   };
 
   const getMemberName = (id: string) => members.find(m => m.id === id)?.fullName || 'غير معروف';
-
-  const currentMonthPrice = dateFilter
-    ? prices.find(p => p.month === monthKey(dateFilter))?.pricePerLiter || 0
-    : 0;
 
   const dateLabel = dateFilter
     ? format(new Date(dateFilter + 'T00:00:00'), 'dd/MM/yyyy')
