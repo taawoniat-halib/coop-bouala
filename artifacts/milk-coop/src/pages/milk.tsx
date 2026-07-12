@@ -81,6 +81,7 @@ export default function Milk() {
 
   const activeMembers = members.filter(m => m.active);
   const isCollectorWithMember = !!(appUser?.memberId && appUser.role === 'collector');
+  const isAdmin = appUser?.role === 'admin';
 
   const filteredReceipts = useMemo(() => {
     if (!dateFilter) return [];
@@ -351,7 +352,7 @@ export default function Milk() {
                             {r.transportCost ? `${r.transportCost} ${currency}` : '—'}
                           </TableCell>
                           <TableCell className="text-left">
-                            {!isCollectorWithMember && (
+                            {isAdmin && (
                               <Button variant="ghost" size="icon" onClick={() => removeReceipt(r.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -457,7 +458,7 @@ export default function Milk() {
                             {(d.quantityLiters * d.pricePerLiter).toLocaleString()} {currency}
                           </TableCell>
                           <TableCell className="text-left">
-                            {!isCollectorWithMember && (
+                            {isAdmin && (
                               <Button variant="ghost" size="icon" onClick={() => removeDelivery(d.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
