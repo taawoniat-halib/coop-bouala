@@ -4,8 +4,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Droplets, Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import logo from '@/assets/logo.png';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -40,8 +41,8 @@ export default function SignIn() {
       
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-8 shadow-xl">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-            <Droplets className="h-8 w-8 text-primary" />
+          <div className="mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary/10">
+            <img src={logo} alt="شعار التعاونية" className="h-full w-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">تعاونية كوب بوعلا</h1>
         </div>

@@ -22,6 +22,8 @@ import {
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { Role } from '@/lib/types';
+import defaultLogo from '@/assets/logo.png';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 
 interface NavItem {
   href: string;
@@ -92,13 +94,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden w-64 flex-col border-l border-border bg-card md:flex">
         <div className="flex h-16 items-center border-b border-border px-6">
-          {settings?.logoUrl ? (
-            <img src={settings.logoUrl} alt={settings.coopName} className="h-8 w-8 object-contain ml-3" />
-          ) : (
-            <Droplets className="h-6 w-6 text-primary ml-3" />
-          )}
+          <img src={settings?.logoUrl || defaultLogo} alt={settings?.coopName || 'شعار التعاونية'} className="h-8 w-8 object-contain ml-3 rounded-full" />
           <h1 className="text-lg font-bold text-foreground truncate">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
         </div>
+        <OfflineIndicator />
         <div className="flex-1 overflow-y-auto">
           <NavLinks />
         </div>
@@ -121,27 +120,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 md:hidden">
           <div className="flex items-center gap-3">
-            {settings?.logoUrl ? (
-              <img src={settings.logoUrl} alt={settings.coopName} className="h-8 w-8 object-contain" />
-            ) : (
-              <Droplets className="h-6 w-6 text-primary" />
-            )}
+            <img src={settings?.logoUrl || defaultLogo} alt={settings?.coopName || 'شعار التعاونية'} className="h-8 w-8 object-contain rounded-full" />
             <h1 className="text-lg font-bold truncate">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
           </div>
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-64 p-0">
-              <SheetTitle className="sr-only">القائمة الرئيسية</SheetTitle>
-              <div className="flex h-16 items-center border-b border-border px-6">
-                <span className="text-lg font-bold">القائمة</span>
-              </div>
-              <NavLinks />
-            </SheetContent>
-          </Sheet>
+          <div className="flex items-center gap-2">
+            <OfflineIndicator compact />
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-64 p-0">
+                <SheetTitle className="sr-only">القائمة الرئيسية</SheetTitle>
+                <div className="flex h-16 items-center border-b border-border px-6">
+                  <span className="text-lg font-bold">القائمة</span>
+                </div>
+                <NavLinks />
+              </SheetContent>
+            </Sheet>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8">

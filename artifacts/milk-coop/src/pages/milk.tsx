@@ -73,12 +73,16 @@ export default function Milk() {
   const handleReceiptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receiptForm.memberId) return toast({ variant: 'destructive', title: 'خطأ', description: 'يجب اختيار العضو' });
-    
+
+    // Always use the current date at the moment of saving (not the date the
+    // form happened to open on) so entries never get logged under a stale
+    // day if the app was left open across midnight.
+    const today = format(new Date(), 'yyyy-MM-dd');
     try {
       await addReceipt({
         memberId: receiptForm.memberId,
         transporterId: receiptForm.transporterId === 'none' ? undefined : receiptForm.transporterId,
-        date: receiptForm.date,
+        date: today,
         quantityLiters: Number(receiptForm.quantityLiters),
         fat: receiptForm.fat ? Number(receiptForm.fat) : undefined,
         notes: receiptForm.notes
@@ -92,9 +96,11 @@ export default function Milk() {
 
   const handleDeliverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Same as receipts: stamp with the date at save time, not page-load time.
+    const today = format(new Date(), 'yyyy-MM-dd');
     try {
       await addDelivery({
-        date: deliveryForm.date,
+        date: today,
         companyName: deliveryForm.companyName,
         quantityLiters: Number(deliveryForm.quantityLiters),
         pricePerLiter: Number(deliveryForm.pricePerLiter),
@@ -203,9 +209,12 @@ export default function Milk() {
         <TabsContent value="received" className="space-y-6">
           <div className="grid md:grid-cols-3 gap-6">
             <div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm">
-              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 border-b pb-2">
+              <h3 className="font-semibold text-lg mb-1 flex items-center gap-2 border-b pb-2">
                 <Plus className="h-5 w-5 text-primary" /> تسجيل استلام جديد
               </h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                سيتم تسجيله تلقائياً بتاريخ اليوم: <span className="font-semibold">{format(new Date(), 'dd/MM/yyyy')}</span>
+              </p>
               <form onSubmit={handleReceiptSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>العضو</Label>
@@ -302,9 +311,12 @@ export default function Milk() {
         <TabsContent value="delivered" className="space-y-6">
           <div className="grid md:grid-cols-3 gap-6">
             <div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm">
-              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 border-b pb-2">
+              <h3 className="font-semibold text-lg mb-1 flex items-center gap-2 border-b pb-2">
                 <Plus className="h-5 w-5 text-emerald-500" /> تسجيل تسليم للشركات
               </h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                سيتم تسجيله تلقائياً بتاريخ اليوم: <span className="font-semibold">{format(new Date(), 'dd/MM/yyyy')}</span>
+              </p>
               <form onSubmit={handleDeliverySubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>اسم الشركة</Label>
