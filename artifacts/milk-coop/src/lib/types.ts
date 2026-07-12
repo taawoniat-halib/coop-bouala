@@ -51,6 +51,7 @@ export interface MilkReceived {
   id: string;
   memberId: string;
   transporterId?: string; // legacy — kept for backward compat
+  pricePerLiter?: number; // price per liter for this specific delivery (overrides monthly price)
   transportCost?: number; // total transport cost for the whole delivery
   date: string; // YYYY-MM-DD
   quantityLiters: number;
