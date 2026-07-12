@@ -27,7 +27,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
           <ProtectedRoute roles={['admin']}><SettingsPage /></ProtectedRoute>
         </Route>
         <Route path="/members">
-          <ProtectedRoute roles={['admin']}><Members /></ProtectedRoute>
+          <ProtectedRoute roles={['admin', 'collector']}><Members /></ProtectedRoute>
         </Route>
         <Route path="/milk">
           <ProtectedRoute roles={['admin', 'collector', 'accountant']}><Milk /></ProtectedRoute>
