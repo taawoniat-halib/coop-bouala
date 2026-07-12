@@ -16,7 +16,7 @@ export interface Settings {
   coopName: string;
   logoUrl?: string;
   currency: string; // MAD
-  phone?: string; // used as default WhatsApp share target
+  phone?: string;
   address?: string;
 }
 
@@ -35,7 +35,7 @@ export interface Transporter {
   fullName: string;
   phone?: string;
   vehicle?: string;
-  costPerLiter: number; // used to compute individual transport cost
+  costPerLiter: number;
   active: boolean;
   createdAt: number;
 }
@@ -50,7 +50,8 @@ export interface Price {
 export interface MilkReceived {
   id: string;
   memberId: string;
-  transporterId?: string;
+  transporterId?: string; // legacy — kept for backward compat
+  transportCost?: number; // cost per liter for transport (new field)
   date: string; // YYYY-MM-DD
   quantityLiters: number;
   fat?: number;
@@ -85,5 +86,14 @@ export interface Expense {
   amount: number;
   category?: string;
   notes?: string;
+  createdAt: number;
+}
+
+export interface Invoice {
+  id: string; // `${memberId}_${month}`
+  memberId: string;
+  month: string; // YYYY-MM
+  paid: boolean;
+  paidAt?: number;
   createdAt: number;
 }
