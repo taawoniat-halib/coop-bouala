@@ -10,19 +10,14 @@ import { Layout } from '@/components/Layout';
     computeMemberMonthlyStatements, deliveredByCompany,
     computeMonthlyStockBalance, monthKey, priceForMonth,
   } from '@/lib/calculations';
-  import {
-    exportToPdf, exportToExcel, printPage, shareOnWhatsApp, printFarmerInvoice,
-  } from '@/lib/exportUtils';
+  import { printFarmerInvoice } from '@/lib/exportUtils';
   import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   } from '@/components/ui/table';
   import { Button } from '@/components/ui/button';
   import { Input } from '@/components/ui/input';
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-  import {
-    FileText, Printer, FileSpreadsheet, Download, Send,
-    Calendar, CheckCircle2, XCircle, Loader2,
-  } from 'lucide-react';
+  import { Printer, Calendar, CheckCircle2, XCircle, Loader2, Send } from 'lucide-react';
   import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
   import { Badge } from '@/components/ui/badge';
   import { doc, setDoc } from 'firebase/firestore';
@@ -42,22 +37,25 @@ import { Layout } from '@/components/Layout';
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const currency = settings?.currency === 'MAD' ? 'درهم' : settings?.currency ?? 'درهم';
 
-    const memberStatements = useMemo(() => {
-      return computeMemberMonthlyStatements(members, receipts, transporters, prices, monthFilter)
+    const memberStatements = useMemo(() =>
+      computeMemberMonthlyStatements(members, receipts, transporters, prices, monthFilter)
         .filter(st => st.totalLiters > 0)
-        .sort((a, b) => b.totalLiters - a.totalLiters);
-    }, [members, receipts, transporters, prices, monthFilter]);
+        .sort((a, b) => b.totalLiters - a.totalLiters),
+      [members, receipts, transporters, prices, monthFilter]
+    );
 
-    const companyDeliveries = useMemo(() => {
-      return deliveredByCompany(deliveries, monthFilter).sort((a, b) => b.liters - a.liters);
-    }, [deliveries, monthFilter]);
+    const companyDeliveries = useMemo(() =>
+      deliveredByCompany(deliveries, monthFilter).sort((a, b) => b.liters - a.liters),
+      [deliveries, monthFilter]
+    );
 
-    const stockBalance = useMemo(() => {
-      return computeMonthlyStockBalance(receipts, deliveries, monthFilter);
-    }, [receipts, deliveries, monthFilter]);
+    const stockBalance = useMemo(() =>
+      computeMonthlyStockBalance(receipts, deliveries, monthFilter),
+      [receipts, deliveries, monthFilter]
+    );
 
-    const totalMembersNet = memberStatements.reduce((sum, st) => sum + st.netAmount, 0);
-    const totalCompanyAmount = companyDeliveries.reduce((sum, d) => sum + d.amount, 0);
+    const totalMembersNet = memberStatements.reduce((s, st) => s + st.netAmount, 0);
+    const totalCompanyAmount = companyDeliveries.reduce((s, d) => s + d.amount, 0);
 
     const getInvoicePaid = (memberId: string) =>
       invoices.some(inv => inv.memberId === memberId && inv.month === monthFilter && inv.paid);
@@ -66,10 +64,10 @@ import { Layout } from '@/components/Layout';
       const invoiceId = `${memberId}_${monthFilter}`;
       setTogglingId(invoiceId);
       try {
-        const currentPaid = getInvoicePaid(memberId);
         await setDoc(doc(db, 'invoices', invoiceId), {
           id: invoiceId, memberId, month: monthFilter,
-          paid: !currentPaid, paidAt: !currentPaid ? Date.now() : null,
+          paid: !getInvoicePaid(memberId),
+          paidAt: !getInvoicePaid(memberId) ? Date.now() : null,
           createdAt: Date.now(),
         }, { merge: true });
       } finally { setTogglingId(null); }
@@ -90,57 +88,19 @@ import { Layout } from '@/components/Layout';
       });
     };
 
-    const handleExportMembersPdf = () => {
-      exportToPdf(
-        `مستحقات الفلاحين - ${monthFilter}`,
-        [
-          { header: 'الفلاح', key: 'memberName' },
-          { header: 'الكمية (لتر)', key: 'totalLiters' },
-          { header: 'الثمن/لتر', key: 'pricePerLiter' },
-          { header: 'الاجمالي', key: 'grossAmount' },
-          { header: 'اقتطاع النقل', key: 'transportCost' },
-          { header: 'الصافي', key: 'netAmount' },
-        ],
-        memberStatements.map(st => ({
-          ...st,
-          netAmount: `${st.netAmount.toFixed(2)} ${currency}`,
-          transportCost: `${st.transportCost.toFixed(2)} ${currency}`,
-          grossAmount: `${st.grossAmount.toFixed(2)} ${currency}`,
-          pricePerLiter: `${st.pricePerLiter} ${currency}`,
-        })),
-        `member-statements-${monthFilter}`,
-      );
-    };
-
-    const handleExportMembersExcel = () => {
-      exportToExcel(
-        'المستحقات',
-        [
-          { header: 'الفلاح', key: 'memberName' },
-          { header: 'الكمية (لتر)', key: 'totalLiters' },
-          { header: 'الثمن/لتر', key: 'pricePerLiter' },
-          { header: 'المبلغ الإجمالي', key: 'grossAmount' },
-          { header: 'اقتطاع النقل', key: 'transportCost' },
-          { header: 'المبلغ الصافي', key: 'netAmount' },
-        ],
-        memberStatements,
-        `member-statements-${monthFilter}`,
-      );
-    };
-
     const handleShareStatement = (st: typeof memberStatements[0]) => {
       const member = members.find(m => m.id === st.memberId);
       const phone = member?.phone || settings?.phone;
       const message = `مرحباً ${st.memberName}،
   تفاصيل حسابك لشهر ${monthFilter} لدى ${settings?.coopName}:
-  - الكمية المسلمة: ${st.totalLiters} لتر
-  - ثمن اللتر: ${st.pricePerLiter} ${currency}
-  - المبلغ الإجمالي: ${st.grossAmount.toFixed(2)} ${currency}
-  - اقتطاع النقل: ${st.transportCost.toFixed(2)} ${currency}
-  -----------------
-  المبلغ الصافي المستحق: ${st.netAmount.toFixed(2)} ${currency}
-  شكراً لثقتكم.`;
-      shareOnWhatsApp(message, phone);
+  - الكمية: ${st.totalLiters} لتر | الثمن: ${st.pricePerLiter} ${currency}/ل
+  - الإجمالي: ${st.grossAmount.toFixed(2)} | النقل: ${st.transportCost.toFixed(2)}
+  - الصافي المستحق: ${st.netAmount.toFixed(2)} ${currency}
+  شكراً.`;
+      const url = phone
+        ? `https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
     };
 
     return (
@@ -148,7 +108,7 @@ import { Layout } from '@/components/Layout';
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">التقارير</h2>
-            <p className="text-muted-foreground mt-1">مستحقات الفلاحين وملخصات التسليم الشهري</p>
+            <p className="text-muted-foreground mt-1">مستحقات الفلاحين وتسليمات الشركات</p>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -164,24 +124,14 @@ import { Layout } from '@/components/Layout';
             <TabsTrigger value="companies">تسليمات الشركات</TabsTrigger>
           </TabsList>
 
-          {/* ─── MEMBERS TAB ─── */}
+          {/* ─── TAB: MEMBERS ─── */}
           <TabsContent value="members">
             <Card>
               <CardHeader>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <CardTitle>مستحقات الفلاحين — {monthFilter}</CardTitle>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={printPage} className="gap-1">
-                      <Printer className="h-3.5 w-3.5" /> طباعة الصفحة
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleExportMembersExcel} className="gap-1">
-                      <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleExportMembersPdf} className="gap-1">
-                      <Download className="h-3.5 w-3.5" /> PDF ملخص
-                    </Button>
-                  </div>
-                </div>
+                <CardTitle>مستحقات الفلاحين — {monthFilter}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  اضغط <strong>فاتورة</strong> في صف الفلاح لطباعة كشف حسابه الشهري التفصيلي.
+                </p>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -189,8 +139,8 @@ import { Layout } from '@/components/Layout';
                     <TableHeader>
                       <TableRow>
                         <TableHead>الفلاح</TableHead>
-                        <TableHead>الكمية (لتر)</TableHead>
-                        <TableHead>الثمن/لتر</TableHead>
+                        <TableHead>الكمية (ل)</TableHead>
+                        <TableHead>الثمن/ل</TableHead>
                         <TableHead>الإجمالي</TableHead>
                         <TableHead>اقتطاع النقل</TableHead>
                         <TableHead>الصافي</TableHead>
@@ -201,74 +151,75 @@ import { Layout } from '@/components/Layout';
                     <TableBody>
                       {memberStatements.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                             لا توجد بيانات لهذا الشهر
                           </TableCell>
                         </TableRow>
-                      ) : (
-                        memberStatements.map(st => {
-                          const paid = getInvoicePaid(st.memberId);
-                          const invoiceId = `${st.memberId}_${monthFilter}`;
-                          const isToggling = togglingId === invoiceId;
-                          return (
-                            <TableRow key={st.memberId}
-                              className={paid ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}>
-                              <TableCell className="font-medium">{st.memberName}</TableCell>
-                              <TableCell className="font-mono">{st.totalLiters.toLocaleString()}</TableCell>
-                              <TableCell className="font-mono">{st.pricePerLiter.toFixed(2)}</TableCell>
-                              <TableCell className="font-mono">
-                                {st.grossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </TableCell>
-                              <TableCell className="font-mono text-destructive">
-                                {st.transportCost > 0
-                                  ? st.transportCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                  : '—'}
-                              </TableCell>
-                              <TableCell className="font-mono font-bold text-primary">
-                                {st.netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                              </TableCell>
-                              <TableCell>
-                                {paid ? (
-                                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1 whitespace-nowrap">
-                                    <CheckCircle2 className="h-3 w-3" /> مدفوع
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1 whitespace-nowrap">
-                                    <XCircle className="h-3 w-3" /> غير مدفوع
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  {/* Print individual farmer invoice */}
-                                  <Button variant="outline" size="sm"
-                                    className="h-7 gap-1 text-xs border-primary/30 text-primary hover:bg-primary/5"
-                                    onClick={() => handlePrintFarmerInvoice(st)}
-                                    title="طباعة فاتورة الفلاح">
-                                    <Printer className="h-3.5 w-3.5" /> فاتورة
-                                  </Button>
-                                  <Button
-                                    variant={paid ? 'outline' : 'default'}
-                                    size="sm"
-                                    onClick={() => toggleInvoicePaid(st.memberId)}
-                                    disabled={isToggling}
-                                    className={paid
-                                      ? 'text-xs h-7 whitespace-nowrap'
-                                      : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap'}>
-                                    {isToggling ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : paid ? 'إلغاء الدفع' : 'تحديد كمدفوع'}
-                                  </Button>
-                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                                    onClick={() => handleShareStatement(st)} title="مشاركة عبر واتساب">
-                                    <Send className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
+                      ) : memberStatements.map(st => {
+                        const paid = getInvoicePaid(st.memberId);
+                        const invoiceId = `${st.memberId}_${monthFilter}`;
+                        const isToggling = togglingId === invoiceId;
+                        return (
+                          <TableRow key={st.memberId}
+                            className={paid ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}>
+                            <TableCell className="font-medium">{st.memberName}</TableCell>
+                            <TableCell className="font-mono">{st.totalLiters.toLocaleString()}</TableCell>
+                            <TableCell className="font-mono">{st.pricePerLiter.toFixed(2)}</TableCell>
+                            <TableCell className="font-mono">
+                              {st.grossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="font-mono text-destructive">
+                              {st.transportCost > 0
+                                ? st.transportCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                : '—'}
+                            </TableCell>
+                            <TableCell className="font-mono font-bold text-primary">
+                              {st.netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                            </TableCell>
+                            <TableCell>
+                              {paid ? (
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1 whitespace-nowrap">
+                                  <CheckCircle2 className="h-3 w-3" /> مدفوع
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1 whitespace-nowrap">
+                                  <XCircle className="h-3 w-3" /> غير مدفوع
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {/* ── Print individual farmer invoice in new window ── */}
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="gap-1.5 h-8 bg-primary hover:bg-primary/90 text-primary-foreground whitespace-nowrap"
+                                  onClick={() => handlePrintFarmerInvoice(st)}
+                                  title="طباعة فاتورة هذا الفلاح في نافذة جديدة">
+                                  <Printer className="h-3.5 w-3.5" />
+                                  فاتورة
+                                </Button>
+                                <Button
+                                  variant={paid ? 'outline' : 'outline'}
+                                  size="sm"
+                                  onClick={() => toggleInvoicePaid(st.memberId)}
+                                  disabled={isToggling}
+                                  className={paid
+                                    ? 'h-8 text-xs whitespace-nowrap'
+                                    : 'h-8 text-xs whitespace-nowrap border-emerald-600 text-emerald-600 hover:bg-emerald-50'}>
+                                  {isToggling ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : paid ? 'إلغاء الدفع' : 'تحديد كمدفوع'}
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8"
+                                  onClick={() => handleShareStatement(st)} title="مشاركة عبر واتساب">
+                                  <Send className="h-3.5 w-3.5 text-emerald-600" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                       {memberStatements.length > 0 && (
                         <TableRow className="bg-muted/50 font-bold">
                           <TableCell>المجموع</TableCell>
@@ -289,7 +240,7 @@ import { Layout } from '@/components/Layout';
                           </TableCell>
                           <TableCell colSpan={2}>
                             <span className="text-xs text-muted-foreground font-normal">
-                              {memberStatements.filter(st => getInvoicePaid(st.memberId)).length} / {memberStatements.length} مدفوع
+                              {memberStatements.filter(st => getInvoicePaid(st.memberId)).length}/{memberStatements.length} مدفوع
                             </span>
                           </TableCell>
                         </TableRow>
@@ -301,15 +252,15 @@ import { Layout } from '@/components/Layout';
             </Card>
           </TabsContent>
 
-          {/* ─── COMPANIES TAB ─── */}
+          {/* ─── TAB: COMPANIES ─── */}
           <TabsContent value="companies">
             <div className="space-y-6">
-              {/* Stock balance summary */}
               <div className="grid grid-cols-3 gap-4">
                 {[
                   { label: 'حليب مستلم', value: stockBalance.receivedLiters, color: 'text-blue-600' },
                   { label: 'حليب مسلَّم', value: stockBalance.deliveredLiters, color: 'text-emerald-600' },
-                  { label: 'الفرق', value: stockBalance.balanceLiters, color: stockBalance.balanceLiters >= 0 ? 'text-amber-600' : 'text-destructive' },
+                  { label: 'الفرق', value: stockBalance.balanceLiters,
+                    color: stockBalance.balanceLiters >= 0 ? 'text-amber-600' : 'text-destructive' },
                 ].map(s => (
                   <Card key={s.label}>
                     <CardContent className="pt-4 text-center">
@@ -322,12 +273,7 @@ import { Layout } from '@/components/Layout';
 
               <Card>
                 <CardHeader>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <CardTitle>تسليمات الشركات — {monthFilter}</CardTitle>
-                    <Button variant="outline" size="sm" onClick={printPage} className="gap-1">
-                      <Printer className="h-3.5 w-3.5" /> طباعة
-                    </Button>
-                  </div>
+                  <CardTitle>تسليمات الشركات — {monthFilter}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
@@ -346,19 +292,17 @@ import { Layout } from '@/components/Layout';
                               لا توجد تسليمات لهذا الشهر
                             </TableCell>
                           </TableRow>
-                        ) : (
-                          companyDeliveries.map(d => (
-                            <TableRow key={d.companyName}>
-                              <TableCell className="font-medium">{d.companyName}</TableCell>
-                              <TableCell className="font-mono font-bold text-emerald-600">
-                                {d.liters.toLocaleString()}
-                              </TableCell>
-                              <TableCell className="font-mono font-bold">
-                                {d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
+                        ) : companyDeliveries.map(d => (
+                          <TableRow key={d.companyName}>
+                            <TableCell className="font-medium">{d.companyName}</TableCell>
+                            <TableCell className="font-mono font-bold text-emerald-600">
+                              {d.liters.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="font-mono font-bold">
+                              {d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                            </TableCell>
+                          </TableRow>
+                        ))}
                         {companyDeliveries.length > 0 && (
                           <TableRow className="bg-muted/50 font-bold">
                             <TableCell>المجموع</TableCell>
