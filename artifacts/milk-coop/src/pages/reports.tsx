@@ -4,7 +4,8 @@ import {
   useMilkReceived, 
   useTransporters, 
   usePrices,
-  useMilkDelivered
+  useMilkDelivered,
+  useInvoices
 } from '@/hooks/useData';
 import { useSettings } from '@/hooks/useSettings';
 import { useState, useMemo } from 'react';
@@ -26,8 +27,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Printer, FileSpreadsheet, Download, Send, Calendar } from 'lucide-react';
+import { FileText, Printer, FileSpreadsheet, Download, Send, Calendar, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function Reports() {
   const { data: members } = useMembers();
@@ -35,10 +39,12 @@ export default function Reports() {
   const { data: transporters } = useTransporters();
   const { data: prices } = usePrices();
   const { data: deliveries } = useMilkDelivered();
+  const { data: invoices } = useInvoices();
   const { settings } = useSettings();
   
   const [monthFilter, setMonthFilter] = useState(monthKey(format(new Date(), 'yyyy-MM-dd')));
   const [activeTab, setActiveTab] = useState('members');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const currency = settings?.currency === 'MAD' ? 'درهم' : settings?.currency;
 
   const memberStatements = useMemo(() => {
@@ -55,16 +61,39 @@ export default function Reports() {
   const totalMembersNet = memberStatements.reduce((sum, st) => sum + st.netAmount, 0);
   const totalCompanyAmount = companyDeliveries.reduce((sum, d) => sum + d.amount, 0);
 
+  const getInvoicePaid = (memberId: string): boolean => {
+    return invoices.some(inv => inv.memberId === memberId && inv.month === monthFilter && inv.paid);
+  };
+
+  const toggleInvoicePaid = async (memberId: string) => {
+    const invoiceId = `${memberId}_${monthFilter}`;
+    setTogglingId(invoiceId);
+    try {
+      const currentPaid = getInvoicePaid(memberId);
+      const invoiceRef = doc(db, 'invoices', invoiceId);
+      await setDoc(invoiceRef, {
+        id: invoiceId,
+        memberId,
+        month: monthFilter,
+        paid: !currentPaid,
+        paidAt: !currentPaid ? Date.now() : null,
+        createdAt: Date.now(),
+      }, { merge: true });
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const handleExportMembersPdf = () => {
     exportToPdf(
-      `مستحقات الاعضاء - ${monthFilter}`,
+      `مستحقات الفلاحين - ${monthFilter}`,
       [
         { header: 'الصافي', key: 'netAmount' },
         { header: 'اقتطاع النقل', key: 'transportCost' },
         { header: 'الاجمالي', key: 'grossAmount' },
         { header: 'الثمن/لتر', key: 'pricePerLiter' },
         { header: 'الكمية (لتر)', key: 'totalLiters' },
-        { header: 'العضو', key: 'memberName' },
+        { header: 'الفلاح', key: 'memberName' },
       ],
       memberStatements.map(st => ({
         ...st,
@@ -81,7 +110,7 @@ export default function Reports() {
     exportToExcel(
       'المستحقات',
       [
-        { header: 'العضو', key: 'memberName' },
+        { header: 'الفلاح', key: 'memberName' },
         { header: 'الكمية (لتر)', key: 'totalLiters' },
         { header: 'الثمن/لتر', key: 'pricePerLiter' },
         { header: 'المبلغ الإجمالي', key: 'grossAmount' },
@@ -96,7 +125,6 @@ export default function Reports() {
   const handleShareStatement = (st: any) => {
     const member = members.find(m => m.id === st.memberId);
     const phone = member?.phone || settings?.phone;
-    
     const message = `مرحباً ${st.memberName}،
 تفاصيل حسابك لشهر ${monthFilter} لدى ${settings?.coopName}:
 - الكمية المسلمة: ${st.totalLiters} لتر
@@ -104,10 +132,8 @@ export default function Reports() {
 - المبلغ الإجمالي: ${st.grossAmount.toFixed(2)} ${currency}
 - اقتطاع النقل: ${st.transportCost.toFixed(2)} ${currency}
 -----------------
-المبلغ الصافي: ${st.netAmount.toFixed(2)} ${currency}
-
-شكراً لتعاملكم معنا.`;
-
+المبلغ الصافي المستحق: ${st.netAmount.toFixed(2)} ${currency}
+شكراً لثقتكم.`;
     shareOnWhatsApp(message, phone);
   };
 
@@ -115,125 +141,210 @@ export default function Reports() {
     <Layout>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            التقارير <FileText className="h-6 w-6 text-muted-foreground" />
-          </h2>
-          <p className="text-muted-foreground mt-1">كشوفات الأعضاء وتفاصيل التسليم الشهري</p>
+          <h2 className="text-3xl font-bold tracking-tight">التقارير</h2>
+          <p className="text-muted-foreground mt-1">مستحقات الفلاحين وملخصات التسليم الشهري</p>
         </div>
-        <div className="flex items-center gap-3 bg-card border border-border p-1 rounded-md">
-          <Calendar className="h-4 w-4 text-muted-foreground ml-2" />
-          <Input 
-            type="month" 
-            value={monthFilter} 
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Input
+            type="month"
+            value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
-            className="border-0 bg-transparent h-8 w-auto focus-visible:ring-0"
+            className="w-auto"
             dir="ltr"
           />
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
-          <TabsTrigger value="members" className="text-base px-6">مستحقات الأعضاء</TabsTrigger>
-          <TabsTrigger value="companies" className="text-base px-6">مبيعات الشركات</TabsTrigger>
+          <TabsTrigger value="members">مستحقات الفلاحين</TabsTrigger>
+          <TabsTrigger value="companies">تسليمات الشركات</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="members" className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="bg-primary/10 text-primary px-4 py-2 rounded-lg font-bold">
-              إجمالي المستحقات: {totalMembersNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleExportMembersExcel} className="gap-2">
-                <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Excel
-              </Button>
-              <Button variant="outline" onClick={handleExportMembersPdf} className="gap-2">
-                <Download className="h-4 w-4 text-destructive" /> PDF
-              </Button>
-              <Button variant="outline" onClick={printPage} className="gap-2">
-                <Printer className="h-4 w-4" /> طباعة
-              </Button>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead>العضو</TableHead>
-                  <TableHead>الكمية (لتر)</TableHead>
-                  <TableHead>الثمن للتر</TableHead>
-                  <TableHead>المبلغ الإجمالي</TableHead>
-                  <TableHead className="text-destructive">اقتطاع النقل</TableHead>
-                  <TableHead className="text-emerald-600 font-bold">المبلغ الصافي</TableHead>
-                  <TableHead className="text-left print:hidden">مراسلة</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {memberStatements.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا يوجد مستحقات لهذا الشهر</TableCell></TableRow>
-                ) : (
-                  memberStatements.map(st => (
-                    <TableRow key={st.memberId}>
-                      <TableCell className="font-medium">{st.memberName}</TableCell>
-                      <TableCell className="font-mono">{st.totalLiters}</TableCell>
-                      <TableCell className="font-mono">{st.pricePerLiter} {currency}</TableCell>
-                      <TableCell className="font-mono">{st.grossAmount.toFixed(2)}</TableCell>
-                      <TableCell className="font-mono text-destructive">{st.transportCost.toFixed(2)}</TableCell>
-                      <TableCell className="font-mono font-bold text-emerald-600 bg-emerald-500/5">{st.netAmount.toFixed(2)} {currency}</TableCell>
-                      <TableCell className="text-left print:hidden">
-                        <Button variant="ghost" size="sm" onClick={() => handleShareStatement(st)} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10">
-                          <Send className="h-4 w-4 ml-2" /> إرسال
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="companies" className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader className="bg-muted/20 border-b">
-                <CardTitle className="text-lg">مداخيل الشركات للشهر</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
+        <TabsContent value="members">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <CardTitle>مستحقات الفلاحين — {monthFilter}</CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={printPage} className="gap-1">
+                    <Printer className="h-3.5 w-3.5" /> طباعة
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExportMembersExcel} className="gap-1">
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExportMembersPdf} className="gap-1">
+                    <Download className="h-3.5 w-3.5" /> PDF
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>الشركة</TableHead>
+                      <TableHead>الفلاح</TableHead>
                       <TableHead>الكمية (لتر)</TableHead>
-                      <TableHead className="text-left">المبلغ</TableHead>
+                      <TableHead>الثمن/لتر</TableHead>
+                      <TableHead>الإجمالي</TableHead>
+                      <TableHead>اقتطاع النقل</TableHead>
+                      <TableHead>الصافي</TableHead>
+                      <TableHead>الحالة</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {companyDeliveries.length === 0 ? (
-                      <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground">لا توجد تسليمات للشركات في هذا الشهر</TableCell></TableRow>
+                    {memberStatements.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          لا توجد بيانات لهذا الشهر
+                        </TableCell>
+                      </TableRow>
                     ) : (
-                      companyDeliveries.map(c => (
-                        <TableRow key={c.companyName}>
-                          <TableCell className="font-medium">{c.companyName}</TableCell>
-                          <TableCell className="font-mono">{c.liters.toLocaleString()}</TableCell>
-                          <TableCell className="text-left font-mono font-bold text-primary">
-                            {c.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      memberStatements.map(st => {
+                        const paid = getInvoicePaid(st.memberId);
+                        const invoiceId = `${st.memberId}_${monthFilter}`;
+                        const isToggling = togglingId === invoiceId;
+                        return (
+                          <TableRow key={st.memberId} className={paid ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}>
+                            <TableCell className="font-medium">{st.memberName}</TableCell>
+                            <TableCell className="font-mono">{st.totalLiters.toLocaleString()}</TableCell>
+                            <TableCell className="font-mono">{st.pricePerLiter}</TableCell>
+                            <TableCell className="font-mono">
+                              {st.grossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="font-mono text-destructive">
+                              {st.transportCost > 0
+                                ? st.transportCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                : '—'}
+                            </TableCell>
+                            <TableCell className="font-mono font-bold text-primary">
+                              {st.netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                            </TableCell>
+                            <TableCell>
+                              {paid ? (
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1 whitespace-nowrap">
+                                  <CheckCircle2 className="h-3 w-3" /> مدفوع
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1 whitespace-nowrap">
+                                  <XCircle className="h-3 w-3" /> غير مدفوع
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant={paid ? 'outline' : 'default'}
+                                  size="sm"
+                                  onClick={() => toggleInvoicePaid(st.memberId)}
+                                  disabled={isToggling}
+                                  className={paid
+                                    ? 'text-xs h-7 whitespace-nowrap'
+                                    : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap'}
+                                >
+                                  {isToggling ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : paid ? (
+                                    'إلغاء الدفع'
+                                  ) : (
+                                    'تحديد كمدفوع'
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost" size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => handleShareStatement(st)}
+                                  title="مشاركة عبر واتساب"
+                                >
+                                  <Send className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
-                    {companyDeliveries.length > 0 && (
+                    {memberStatements.length > 0 && (
                       <TableRow className="bg-muted/50 font-bold">
                         <TableCell>المجموع</TableCell>
-                        <TableCell className="font-mono">{companyDeliveries.reduce((s, c) => s + c.liters, 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-left font-mono text-primary">
-                          {totalCompanyAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                        <TableCell className="font-mono">
+                          {memberStatements.reduce((s, st) => s + st.totalLiters, 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className="font-mono">
+                          {memberStatements.reduce((s, st) => s + st.grossAmount, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="font-mono text-destructive">
+                          {memberStatements.reduce((s, st) => s + st.transportCost, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="font-mono text-primary">
+                          {totalMembersNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                        </TableCell>
+                        <TableCell colSpan={2}>
+                          <span className="text-xs text-muted-foreground font-normal">
+                            {memberStatements.filter(st => getInvoicePaid(st.memberId)).length} / {memberStatements.length} مدفوع
+                          </span>
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="companies">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>تسليمات الشركات — {monthFilter}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>الشركة</TableHead>
+                        <TableHead>الكمية (لتر)</TableHead>
+                        <TableHead className="text-left">المبلغ الإجمالي</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {companyDeliveries.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                            لا توجد تسليمات لهذا الشهر
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        companyDeliveries.map(c => (
+                          <TableRow key={c.companyName}>
+                            <TableCell className="font-medium">{c.companyName}</TableCell>
+                            <TableCell className="font-mono font-bold text-emerald-600">{c.liters.toLocaleString()}</TableCell>
+                            <TableCell className="text-left font-mono font-bold text-primary">
+                              {c.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                      {companyDeliveries.length > 0 && (
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell>المجموع</TableCell>
+                          <TableCell className="font-mono">
+                            {companyDeliveries.reduce((s, c) => s + c.liters, 0).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-left font-mono text-primary">
+                            {totalCompanyAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
 
@@ -244,11 +355,15 @@ export default function Reports() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center border-b border-primary/10 pb-2">
                   <span className="text-muted-foreground">مداخيل الشركات (مبيعات):</span>
-                  <span className="font-mono font-bold text-lg">{totalCompanyAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
+                  <span className="font-mono font-bold text-lg">
+                    {totalCompanyAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center border-b border-primary/10 pb-2">
-                  <span className="text-muted-foreground">مستحقات الأعضاء (مشتريات):</span>
-                  <span className="font-mono font-bold text-lg text-destructive">{totalMembersNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
+                  <span className="text-muted-foreground">مستحقات الفلاحين (مشتريات):</span>
+                  <span className="font-mono font-bold text-lg text-destructive">
+                    {totalMembersNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center pt-2">
                   <span className="font-bold">الهامش الإجمالي التقريبي:</span>
