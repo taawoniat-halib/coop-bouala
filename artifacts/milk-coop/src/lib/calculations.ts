@@ -54,8 +54,10 @@ export function computeMemberMonthlyStatements(
     );
     const transportCost = memberReceipts.reduce((sum, r) => {
       if (r.transportCost !== undefined) {
-        return sum + r.quantityLiters * r.transportCost;
+        // transportCost is the total cost for the whole delivery
+        return sum + r.transportCost;
       }
+      // Legacy: compute from transporter costPerLiter
       const transporter = r.transporterId
         ? transporterById.get(r.transporterId)
         : undefined;
