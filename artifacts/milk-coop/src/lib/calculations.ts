@@ -30,10 +30,9 @@ export interface MemberMonthlyStatement {
 }
 
 /**
- * Computes each member's net pay for a month:
- * net = (quantity × monthly price) − individual transport cost.
- * Transport cost is the sum, over the member's deliveries that month, of
- * quantity × the assigned transporter's cost-per-liter.
+ * Computes each member's net pay for a month.
+ * Transport cost uses the new per-receipt transportCost field (cost per liter)
+ * with a fallback to the legacy transporter lookup for old records.
  */
 export function computeMemberMonthlyStatements(
   members: Member[],
@@ -54,6 +53,9 @@ export function computeMemberMonthlyStatements(
       0,
     );
     const transportCost = memberReceipts.reduce((sum, r) => {
+      if (r.transportCost !== undefined) {
+        return sum + r.quantityLiters * r.transportCost;
+      }
       const transporter = r.transporterId
         ? transporterById.get(r.transporterId)
         : undefined;
