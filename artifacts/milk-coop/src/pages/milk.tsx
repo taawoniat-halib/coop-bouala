@@ -248,7 +248,7 @@ export default function Milk() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label>ثمن النقل للتر ({currency})</Label>
+                  <Label>ثمن النقل الإجمالي ({currency})</Label>
                   <Input 
                     type="number" step="0.01" min="0" placeholder="0.00" dir="ltr"
                     className="text-right font-mono"
