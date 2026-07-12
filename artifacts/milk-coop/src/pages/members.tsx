@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { Member } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { adminCreateUser } from '@/lib/adminCreateUser';
 
 export default function Members() {
   const { data: members, loading, add, update, remove } = useMembers();
@@ -34,6 +35,9 @@ export default function Members() {
     phone: '',
     address: '',
     active: true,
+    createAccount: false,
+    email: '',
+    password: '',
   });
 
   const filteredMembers = useMemo(() => {
@@ -54,6 +58,9 @@ export default function Members() {
         phone: member.phone || '',
         address: member.address || '',
         active: member.active,
+        createAccount: false,
+        email: '',
+        password: '',
       });
     } else {
       setEditingId(null);
@@ -63,6 +70,9 @@ export default function Members() {
         phone: '',
         address: '',
         active: true,
+        createAccount: false,
+        email: '',
+        password: '',
       });
     }
     setIsDialogOpen(true);
@@ -70,12 +80,28 @@ export default function Members() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = {
+      fullName: formData.fullName,
+      cin: formData.cin,
+      phone: formData.phone,
+      address: formData.address,
+      active: formData.active,
+    };
     try {
       if (editingId) {
-        await update(editingId, formData);
+        await update(editingId, payload);
         toast({ title: 'تم التحديث', description: 'تم تحديث بيانات العضو بنجاح.' });
       } else {
-        await add(formData);
+        const docRef = await add(payload);
+        if (formData.createAccount) {
+          await adminCreateUser(
+            formData.email,
+            formData.password,
+            formData.fullName,
+            'collector',
+            { memberId: docRef.id },
+          );
+        }
         toast({ title: 'تمت الإضافة', description: 'تمت إضافة العضو بنجاح.' });
       }
       setIsDialogOpen(false);
@@ -162,6 +188,49 @@ export default function Members() {
                 />
                 <Label htmlFor="active">حالة العضو (نشط)</Label>
               </div>
+
+              {!editingId && (
+                <div className="space-y-4 border-t border-border pt-4 mt-2">
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <Switch
+                      id="createAccount"
+                      checked={formData.createAccount}
+                      onCheckedChange={(checked) => setFormData({ ...formData, createAccount: checked })}
+                    />
+                    <Label htmlFor="createAccount">إنشاء حساب دخول لهذا العضو</Label>
+                  </div>
+                  {formData.createAccount && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="memberEmail">البريد الإلكتروني (Gmail)</Label>
+                        <Input
+                          id="memberEmail"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          required={formData.createAccount}
+                          dir="ltr"
+                          className="text-right"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="memberPassword">الكود (كلمة المرور)</Label>
+                        <Input
+                          id="memberPassword"
+                          type="password"
+                          minLength={6}
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          required={formData.createAccount}
+                          dir="ltr"
+                          className="text-right"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               <DialogFooter className="pt-4">
                 <Button type="submit" className="w-full">حفظ</Button>
               </DialogFooter>

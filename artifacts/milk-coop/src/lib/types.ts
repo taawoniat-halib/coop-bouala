@@ -6,7 +6,9 @@ export interface AppUser {
   displayName?: string;
   role: Role;
   createdAt: number;
-  /** Set when this login belongs to a transporter, links back to their record. */
+  /** Set when this login belongs to a member, links back to their record. */
+  memberId?: string;
+  /** Legacy: set on older logins created for a transporter. No longer created going forward. */
   transporterId?: string;
 }
 
