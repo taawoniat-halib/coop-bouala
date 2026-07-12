@@ -50,8 +50,14 @@ export function useCollection<T extends { id: string }>(
   }, [collectionName]);
 
   const add = async (payload: Omit<T, 'id' | 'createdAt'>) => {
+    // Firestore's addDoc() rejects any field whose value is `undefined`
+    // (e.g. an optional select left unset). Strip those keys instead of
+    // sending them, so optional fields are simply omitted from the document.
+    const cleanPayload = Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => value !== undefined),
+    );
     return addDoc(collection(db, collectionName), {
-      ...payload,
+      ...cleanPayload,
       createdAt: serverTimestamp(),
     });
   };
