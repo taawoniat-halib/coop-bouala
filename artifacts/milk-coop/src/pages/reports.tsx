@@ -17,11 +17,15 @@ import { Layout } from '@/components/Layout';
   import { Button } from '@/components/ui/button';
   import { Input } from '@/components/ui/input';
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-  import { Printer, Calendar, CheckCircle2, XCircle, Loader2, Send } from 'lucide-react';
+  import { Printer, Calendar, CheckCircle2, XCircle, Loader2, Send, Search } from 'lucide-react';
   import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
   import { Badge } from '@/components/ui/badge';
   import { doc, setDoc } from 'firebase/firestore';
   import { db } from '@/lib/firebase';
+  import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  } from '@/components/ui/dialog';
+  import { Command, CommandInput, CommandList, CommandItem, CommandEmpty } from '@/components/ui/command';
 
   export default function Reports() {
     const { data: members } = useMembers();
@@ -35,6 +39,8 @@ import { Layout } from '@/components/Layout';
     const [monthFilter, setMonthFilter] = useState(monthKey(format(new Date(), 'yyyy-MM-dd')));
     const [activeTab, setActiveTab] = useState('members');
     const [togglingId, setTogglingId] = useState<string | null>(null);
+    const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+    const [printingMemberId, setPrintingMemberId] = useState<string | null>(null);
     const currency = settings?.currency === 'MAD' ? 'درهم' : settings?.currency ?? 'درهم';
 
     const memberStatements = useMemo(() =>
@@ -42,6 +48,12 @@ import { Layout } from '@/components/Layout';
         .filter(st => st.totalLiters > 0)
         .sort((a, b) => b.totalLiters - a.totalLiters),
       [members, receipts, transporters, prices, monthFilter]
+    );
+
+    // All members (active) for the search dialog — not limited to current month
+    const allMembersSorted = useMemo(() =>
+      [...members].filter(m => m.active).sort((a, b) => a.fullName.localeCompare(b.fullName, 'ar')),
+      [members]
     );
 
     const companyDeliveries = useMemo(() =>
@@ -73,11 +85,11 @@ import { Layout } from '@/components/Layout';
       } finally { setTogglingId(null); }
     };
 
-    const handlePrintFarmerInvoice = (st: typeof memberStatements[0]) => {
+    const handlePrintFarmerInvoice = async (st: typeof memberStatements[0]) => {
       const farmerReceipts = receipts.filter(
         r => r.memberId === st.memberId && monthKey(r.date) === monthFilter
       );
-      printFarmerInvoice({
+      await printFarmerInvoice({
         farmerName: st.memberName,
         month: monthFilter,
         receipts: farmerReceipts,
@@ -86,6 +98,30 @@ import { Layout } from '@/components/Layout';
         logoUrl: settings?.logoUrl,
         currency,
       });
+    };
+
+    // Print invoice for any member (searched by id, builds statement on the fly)
+    const handlePrintByMemberId = async (memberId: string, memberName: string) => {
+      setPrintingMemberId(memberId);
+      setInvoiceDialogOpen(false);
+      try {
+        const farmerReceipts = receipts.filter(
+          r => r.memberId === memberId && monthKey(r.date) === monthFilter
+        );
+        // build a minimal statement to reuse existing logic
+        const st = memberStatements.find(s => s.memberId === memberId);
+        await printFarmerInvoice({
+          farmerName: memberName,
+          month: monthFilter,
+          receipts: farmerReceipts,
+          monthlyPricePerLiter: st?.pricePerLiter ?? priceForMonth(prices, monthFilter),
+          coopName: settings?.coopName || 'تعاونية كوب بوعلا',
+          logoUrl: settings?.logoUrl,
+          currency,
+        });
+      } finally {
+        setPrintingMemberId(null);
+      }
     };
 
     const handleShareStatement = (st: typeof memberStatements[0]) => {
@@ -105,6 +141,55 @@ import { Layout } from '@/components/Layout';
 
     return (
       <Layout>
+        {/* ── Farmer search & print dialog ── */}
+        <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+          <DialogContent className="max-w-md p-0 gap-0" dir="rtl">
+            <DialogHeader className="px-4 pt-4 pb-2">
+              <DialogTitle className="flex items-center gap-2">
+                <Printer className="h-4 w-4" />
+                طباعة فاتورة فلاح — {monthFilter}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                ابحث عن الفلاح باسمه أو جزء منه ثم اضغط عليه لطباعة فاتورته
+              </DialogDescription>
+            </DialogHeader>
+            <Command className="border-t rounded-none" dir="rtl">
+              <CommandInput placeholder="ابحث عن فلاح..." className="h-10" />
+              <CommandList className="max-h-72">
+                <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
+                  لا يوجد فلاح بهذا الاسم
+                </CommandEmpty>
+                {allMembersSorted.map(m => {
+                  const hasData = memberStatements.some(st => st.memberId === m.id);
+                  const isPrinting = printingMemberId === m.id;
+                  return (
+                    <CommandItem
+                      key={m.id}
+                      value={m.fullName}
+                      onSelect={() => handlePrintByMemberId(m.id, m.fullName)}
+                      className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isPrinting
+                          ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                          : <Printer className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        }
+                        <span className="truncate font-medium">{m.fullName}</span>
+                      </div>
+                      {hasData
+                        ? <Badge variant="outline" className="text-[10px] shrink-0 bg-emerald-50 text-emerald-700 border-emerald-200">
+                            لديه بيانات
+                          </Badge>
+                        : <span className="text-[10px] text-muted-foreground shrink-0">لا بيانات هذا الشهر</span>
+                      }
+                    </CommandItem>
+                  );
+                })}
+              </CommandList>
+            </Command>
+          </DialogContent>
+        </Dialog>
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">التقارير</h2>
@@ -128,10 +213,22 @@ import { Layout } from '@/components/Layout';
           <TabsContent value="members">
             <Card>
               <CardHeader>
-                <CardTitle>مستحقات الفلاحين — {monthFilter}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  اضغط <strong>فاتورة</strong> في صف الفلاح لطباعة كشف حسابه الشهري التفصيلي.
-                </p>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>مستحقات الفلاحين — {monthFilter}</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      اضغط <strong>فاتورة</strong> في صف الفلاح أو استخدم زر البحث لطباعة الفاتورة مباشرة.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="gap-2 shrink-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    onClick={() => setInvoiceDialogOpen(true)}
+                  >
+                    <Search className="h-4 w-4" />
+                    بحث عن فلاح
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -325,4 +422,3 @@ import { Layout } from '@/components/Layout';
       </Layout>
     );
   }
-  

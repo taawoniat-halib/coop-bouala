@@ -4,7 +4,7 @@ import { useUsers } from '@/hooks/useData';
 import { adminCreateUser } from '@/lib/adminCreateUser';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Card, CardContent, CardHeader, CardTitle, CardDescription 
 } from '@/components/ui/card';
@@ -36,17 +36,17 @@ export default function SettingsPage() {
   
   // Settings Form State
   const [coopName, setCoopName] = useState('');
-  const [currency, setCurrency] = useState('');
+  const [currency, setCurrency] = useState('MAD');
   const [phone, setPhone] = useState('');
-  
-  // Initialize form when settings load
-  useState(() => {
+
+  // ── FIX: use useEffect (not useState) to initialize form from loaded settings ──
+  useEffect(() => {
     if (!settingsLoading && settings) {
       setCoopName(settings.coopName || '');
       setCurrency(settings.currency || 'MAD');
       setPhone(settings.phone || '');
     }
-  });
+  }, [settingsLoading, settings]);
 
   // User Form State
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -153,12 +153,12 @@ export default function SettingsPage() {
                 )}
               </div>
               <div>
+                {/* ── FIX: removed duplicate accept attribute ── */}
                 <input 
                   type="file" 
                   ref={fileInputRef} 
-                  accept="image/*"
-            className="hidden" 
-                  accept="image/png, image/jpeg, image/webp" 
+                  accept="image/png, image/jpeg, image/webp"
+                  className="hidden"
                   onChange={handleLogoUpload}
                 />
                 <Button 
@@ -178,15 +178,15 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label htmlFor="coopName">اسم التعاونية</Label>
                 <Input 
-                  id="coopName" 
-                  defaultValue={settings?.coopName || ''} 
+                  id="coopName"
+                  value={coopName}
                   onChange={(e) => setCoopName(e.target.value)}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="currency">العملة</Label>
-                  <Select defaultValue={settings?.currency || 'MAD'} onValueChange={setCurrency}>
+                  <Select value={currency} onValueChange={setCurrency}>
                     <SelectTrigger dir="ltr">
                       <SelectValue />
                     </SelectTrigger>
@@ -200,8 +200,8 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="phone">رقم الهاتف (الواتساب)</Label>
                   <Input 
-                    id="phone" 
-                    defaultValue={settings?.phone || ''} 
+                    id="phone"
+                    value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     dir="ltr"
                     className="text-right"

@@ -76,8 +76,32 @@ import jsPDF from 'jspdf';
     return n.toLocaleString('fr-MA', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   }
 
-  export function printFarmerInvoice(data: FarmerInvoiceData): void {
+  /** Convert a remote image URL to a base64 data-URL so it can be embedded
+   *  in a detached print window without relying on cross-origin network timing. */
+  async function urlToBase64(url: string): Promise<string> {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      // If fetch fails (e.g. CORS), return empty string → logo hidden gracefully
+      return '';
+    }
+  }
+
+  export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void> {
     const { farmerName, month, receipts, monthlyPricePerLiter, coopName, logoUrl, currency } = data;
+
+    // ── Pre-load logo as base64 so it renders correctly in the print window ──
+    let logoBase64 = '';
+    if (logoUrl) {
+      logoBase64 = await urlToBase64(logoUrl);
+    }
 
     const sorted = [...receipts].sort((a, b) => a.date.localeCompare(b.date));
     const rows = sorted.map(r => {
@@ -97,19 +121,25 @@ import jsPDF from 'jspdf';
     const [year, monthNum] = month.split('-');
     const monthLabel = `${MONTH_NAMES_AR[parseInt(monthNum) - 1]} ${year}`;
 
-    const rowsHtml = rows.map(r => `
-      <tr>
-        <td>${r.day}</td>
-        <td class="num">${fmt(r.qty, 1)}</td>
-        <td class="num">${fmt(r.price)}</td>
-        <td class="num">${fmt(r.gross)}</td>
-        <td class="num deduct">${r.transport > 0 ? fmt(r.transport) : '—'}</td>
-        <td class="num net">${fmt(r.net)}</td>
-        <td class="note">${r.fat !== undefined ? r.fat + '%' : ''} ${r.notes}</td>
-      </tr>
-    `).join('');
+    const rowsHtml = rows.length === 0
+      ? `<tr><td colspan="7" style="text-align:center;padding:20px;color:#888;">لا توجد استلامات مسجلة لهذا الشهر</td></tr>`
+      : rows.map(r => `
+        <tr>
+          <td>${r.day}</td>
+          <td class="num">${fmt(r.qty, 1)}</td>
+          <td class="num">${fmt(r.price)}</td>
+          <td class="num">${fmt(r.gross)}</td>
+          <td class="num deduct">${r.transport > 0 ? fmt(r.transport) : '—'}</td>
+          <td class="num net">${fmt(r.net)}</td>
+          <td class="note">${r.fat !== undefined ? r.fat + '%' : ''} ${r.notes}</td>
+        </tr>
+      `).join('');
 
-    const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="logo" class="logo" />` : '';
+    // Use base64 logo so the image is embedded and loads instantly
+    const logoHtml = logoBase64
+      ? `<img src="${logoBase64}" alt="logo" class="logo" />`
+      : '';
+
     const printedOn = new Date().toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' });
 
     const html = `<!DOCTYPE html>
@@ -172,7 +202,7 @@ import jsPDF from 'jspdf';
       </thead>
       <tbody>
         ${rowsHtml}
-        <tr class="totals-row">
+        ${rows.length > 0 ? `<tr class="totals-row">
           <td>المجموع</td>
           <td class="num">${fmt(totalQty, 1)}</td>
           <td></td>
@@ -180,7 +210,7 @@ import jsPDF from 'jspdf';
           <td class="num deduct">${totalTransport > 0 ? fmt(totalTransport) : '—'}</td>
           <td class="num net">${fmt(totalNet)}</td>
           <td></td>
-        </tr>
+        </tr>` : ''}
       </tbody>
     </table>
 
@@ -199,11 +229,26 @@ import jsPDF from 'jspdf';
   </html>`;
 
     const win = window.open('', '_blank', 'width=900,height=750');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      win.focus();
-      setTimeout(() => win.print(), 700);
+    if (!win) {
+      alert('⚠️ تم حجب النافذة المنبثقة من طرف المتصفح.\nيرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم المحاولة مجدداً.');
+      return;
     }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    // Wait for the document to fully render before triggering print
+    win.onload = () => {
+      setTimeout(() => win.print(), 300);
+    };
+    // Fallback: if onload already fired (some browsers), use a longer delay
+    setTimeout(() => {
+      if (!win.closed) {
+        // Only call print if onload hasn't already triggered it
+        // Using a flag via the window object
+        if (!(win as any).__printed) {
+          (win as any).__printed = true;
+          win.print();
+        }
+      }
+    }, 1500);
   }
-  
