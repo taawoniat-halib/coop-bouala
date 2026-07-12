@@ -1,0 +1,98 @@
+name: بناء وإصدار APK أندرويد
+
+on:
+  workflow_dispatch:   # تشغيل يدوي من GitHub Actions
+
+permissions:
+  contents: write      # لازم لإنشاء GitHub Release
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: استنساخ الكود
+        uses: actions/checkout@v4
+
+      - name: إعداد pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: إعداد Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: إعداد Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: إعداد Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: تثبيت التبعيات
+        run: pnpm install
+
+      - name: بناء مكتبات الـ workspace
+        run: pnpm run typecheck:libs
+
+      - name: بناء التطبيق للأندرويد (BASE_PATH = /)
+        working-directory: artifacts/milk-coop
+        env:
+          PORT: "3000"
+          BASE_PATH: "/"
+          NODE_ENV: production
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+        run: pnpm run build
+
+      - name: إضافة منصة الأندرويد
+        working-directory: artifacts/milk-coop
+        run: npx cap add android
+
+      - name: توليد أيقونات التطبيق
+        working-directory: artifacts/milk-coop
+        run: npx @capacitor/assets generate --ios false --android true
+
+      - name: مزامنة ملفات الويب مع الأندرويد
+        working-directory: artifacts/milk-coop
+        run: npx cap sync android
+
+      - name: تشغيل Gradle
+        working-directory: artifacts/milk-coop/android
+        run: chmod +x gradlew && ./gradlew assembleDebug --stacktrace
+
+      - name: إعادة تسمية ملف APK
+        run: |
+          mv artifacts/milk-coop/android/app/build/outputs/apk/debug/app-debug.apk \
+             coop-bouala.apk
+
+      - name: نشر APK كإصدار GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: "📱 تطبيق تعاونية كوب بوعلا"
+          body: |
+            ## تحميل وتثبيت التطبيق على الأندرويد
+
+            ### الخطوات:
+            1. اضغط على **`coop-bouala.apk`** أدناه لتحميل الملف
+            2. افتح الملف من هاتفك الأندرويد
+            3. إذا ظهرت رسالة "تثبيت من مصادر غير معروفة" → اضغط **الإعدادات** ثم فعّل الخيار
+            4. اضغط **تثبيت** ✅
+
+            > **ملاحظة:** هذا إصدار تطوير (Debug). يعمل بكامل الوظائف لكنه غير موقّع للنشر في Play Store.
+
+            ---
+            🔄 **الإصدار:** #${{ github.run_number }} — بُني تلقائياً من آخر كود على GitHub
+          files: coop-bouala.apk
+          make_latest: true

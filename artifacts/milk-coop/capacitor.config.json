@@ -1,0 +1,19 @@
+{
+  "appId": "ma.coop.bouala",
+  "appName": "كوب بوعلا",
+  "webDir": "dist/public",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#ffffff"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#166534",
+      "showSpinner": false
+    }
+  }
+}
