@@ -18,6 +18,15 @@ service cloud.firestore {
       return isSignedIn() && role() == 'admin';
     }
 
+    // A "collector" account that is linked to a member (i.e. the member is
+    // logging in with their own account, not a staff collector). These
+    // accounts must never be able to delete data, even though they can
+    // create/update their own milk receipts.
+    function isMemberLinkedCollector() {
+      return isSignedIn() && role() == 'collector' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.memberId != null;
+    }
+
     // Every user can read their own profile; only admins can list/manage all
     // users and change roles. Users are created via the app's admin-only
     // "create user" flow, never public self-signup.
@@ -54,12 +63,16 @@ service cloud.firestore {
 
     match /milk_received/{docId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && role() in ['admin', 'collector'];
+      allow create, update: if isSignedIn() && role() in ['admin', 'collector'];
+      // Members (collector accounts linked to a member) can never delete;
+      // only admins or staff collectors (not linked to a member) can.
+      allow delete: if isSignedIn() && (isAdmin() || (role() == 'collector' && !isMemberLinkedCollector()));
     }
 
     match /milk_delivered/{docId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && role() in ['admin', 'collector'];
+      allow create, update: if isSignedIn() && role() in ['admin', 'collector'];
+      allow delete: if isSignedIn() && (isAdmin() || (role() == 'collector' && !isMemberLinkedCollector()));
     }
 
     match /incomes/{docId} {
