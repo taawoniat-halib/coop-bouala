@@ -30,13 +30,17 @@ interface NavItem {
   roles: Role[];
 }
 
+// Regular accounts (collector/accountant) only ever see the milk page --
+// receiving ("الاستلام") and delivery ("التسليم") live inside it. Everything
+// else in the control panel (members, transporters, budget, reports,
+// settings, the dashboard) is admin-only.
 const navItems: NavItem[] = [
-  { href: '/', label: 'لوحة القيادة', icon: LayoutDashboard, roles: ['admin', 'collector', 'accountant'] },
-  { href: '/members', label: 'الأعضاء', icon: Users, roles: ['admin', 'collector'] },
-  { href: '/transporters', label: 'الناقلون', icon: Truck, roles: ['admin', 'collector'] },
-  { href: '/milk', label: 'الحليب', icon: Droplets, roles: ['admin', 'collector'] },
-  { href: '/budget', label: 'الميزانية', icon: Calculator, roles: ['admin', 'accountant'] },
-  { href: '/reports', label: 'التقارير', icon: FileText, roles: ['admin', 'accountant'] },
+  { href: '/', label: 'لوحة القيادة', icon: LayoutDashboard, roles: ['admin'] },
+  { href: '/members', label: 'الأعضاء', icon: Users, roles: ['admin'] },
+  { href: '/transporters', label: 'الناقلون', icon: Truck, roles: ['admin'] },
+  { href: '/milk', label: 'الحليب', icon: Droplets, roles: ['admin', 'collector', 'accountant'] },
+  { href: '/budget', label: 'الميزانية', icon: Calculator, roles: ['admin'] },
+  { href: '/reports', label: 'التقارير', icon: FileText, roles: ['admin'] },
   { href: '/settings', label: 'الإعدادات', icon: SettingsIcon, roles: ['admin'] },
 ];
 

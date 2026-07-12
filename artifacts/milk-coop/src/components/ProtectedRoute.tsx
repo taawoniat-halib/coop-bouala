@@ -19,7 +19,12 @@ export function ProtectedRoute({
 
   if (loading) return null;
   if (!appUser) return <Redirect to="/sign-in" />;
-  if (roles && !roles.includes(appUser.role)) return <Redirect to="/" />;
+  if (roles && !roles.includes(appUser.role)) {
+    // Send the user back to whichever landing page they're actually
+    // allowed to see, instead of the fixed "/" (which admins-only can
+    // reach and would otherwise loop for everyone else).
+    return <Redirect to={appUser.role === 'admin' ? '/' : '/milk'} />;
+  }
 
   return <>{children}</>;
 }

@@ -16,7 +16,7 @@ export default function SignIn() {
   const [, setLocation] = useLocation();
 
   if (appUser) {
-    setLocation('/');
+    setLocation(appUser.role === 'admin' ? '/' : '/milk');
     return null;
   }
 

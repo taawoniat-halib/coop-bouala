@@ -21,7 +21,7 @@ function Router() {
     <Switch>
       <Route path="/sign-in" component={SignIn} />
       <Route path="/">
-        <ProtectedRoute>
+        <ProtectedRoute roles={['admin']}>
           <Dashboard />
         </ProtectedRoute>
       </Route>
@@ -31,27 +31,27 @@ function Router() {
         </ProtectedRoute>
       </Route>
       <Route path="/members">
-        <ProtectedRoute roles={['admin', 'collector']}>
+        <ProtectedRoute roles={['admin']}>
           <Members />
         </ProtectedRoute>
       </Route>
       <Route path="/transporters">
-        <ProtectedRoute roles={['admin', 'collector']}>
+        <ProtectedRoute roles={['admin']}>
           <Transporters />
         </ProtectedRoute>
       </Route>
       <Route path="/milk">
-        <ProtectedRoute roles={['admin', 'collector']}>
+        <ProtectedRoute roles={['admin', 'collector', 'accountant']}>
           <Milk />
         </ProtectedRoute>
       </Route>
       <Route path="/budget">
-        <ProtectedRoute roles={['admin', 'accountant']}>
+        <ProtectedRoute roles={['admin']}>
           <Budget />
         </ProtectedRoute>
       </Route>
       <Route path="/reports">
-        <ProtectedRoute roles={['admin', 'accountant']}>
+        <ProtectedRoute roles={['admin']}>
           <Reports />
         </ProtectedRoute>
       </Route>
