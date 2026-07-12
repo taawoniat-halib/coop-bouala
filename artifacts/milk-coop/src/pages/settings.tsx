@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, Users, Shield, Plus, Upload, Loader2, Save } from 'lucide-react';
+import { Settings, Users, Shield, Plus, Upload, Loader2, Save, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ import type { Role } from '@/lib/types';
 
 export default function SettingsPage() {
   const { settings, loading: settingsLoading, updateSettings } = useSettings();
-  const { data: users, loading: usersLoading, update: updateUser } = useUsers();
+  const { data: users, loading: usersLoading, update: updateUser, remove: removeUser } = useUsers();
   const { toast } = useToast();
   
   const [isSaving, setIsSaving] = useState(false);
@@ -89,6 +89,16 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
+    try {
+      await removeUser(userId);
+      toast({ title: 'تم الحذف', description: 'تم حذف المستخدم بنجاح.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingUser(true);
@@ -146,7 +156,8 @@ export default function SettingsPage() {
                 <input 
                   type="file" 
                   ref={fileInputRef} 
-                  className="hidden" 
+                  accept="image/*"
+            className="hidden" 
                   accept="image/png, image/jpeg, image/webp" 
                   onChange={handleLogoUpload}
                 />
@@ -261,6 +272,7 @@ export default function SettingsPage() {
                     <TableHead>المستخدم</TableHead>
                     <TableHead>البريد</TableHead>
                     <TableHead>الصلاحية</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
