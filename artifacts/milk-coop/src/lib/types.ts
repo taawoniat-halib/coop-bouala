@@ -51,7 +51,7 @@ export interface MilkReceived {
   id: string;
   memberId: string;
   transporterId?: string; // legacy — kept for backward compat
-  transportCost?: number; // cost per liter for transport (new field)
+  transportCost?: number; // total transport cost for the whole delivery
   date: string; // YYYY-MM-DD
   quantityLiters: number;
   fat?: number;
