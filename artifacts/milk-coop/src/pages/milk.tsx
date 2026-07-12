@@ -39,6 +39,7 @@ export default function Milk() {
 
   const [receiptForm, setReceiptForm] = useState({
     memberId: '',
+    pricePerLiter: '',
     transportCost: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     quantityLiters: '',
@@ -67,6 +68,13 @@ export default function Milk() {
     }
   }, [appUser?.memberId]);
 
+  // Pre-fill price per liter from the current month's price
+  useEffect(() => {
+    if (currentMonthPrice) {
+      setReceiptForm(prev => ({ ...prev, pricePerLiter: String(currentMonthPrice) }));
+    }
+  }, [currentMonthPrice]);
+
   const activeMembers = members.filter(m => m.active);
   const isCollectorWithMember = !!(appUser?.memberId && appUser.role === 'collector');
 
@@ -87,6 +95,7 @@ export default function Milk() {
     try {
       await addReceipt({
         memberId: receiptForm.memberId,
+        pricePerLiter: receiptForm.pricePerLiter ? Number(receiptForm.pricePerLiter) : undefined,
         transportCost: receiptForm.transportCost ? Number(receiptForm.transportCost) : undefined,
         date: today,
         quantityLiters: Number(receiptForm.quantityLiters),
@@ -97,6 +106,7 @@ export default function Milk() {
       setReceiptForm(prev => ({
         ...prev,
         memberId: isCollectorWithMember ? prev.memberId : '',
+        pricePerLiter: currentMonthPrice ? String(currentMonthPrice) : '',
         transportCost: '',
         quantityLiters: '',
         fat: '',
@@ -248,6 +258,16 @@ export default function Milk() {
                   </div>
                 )}
                 <div className="space-y-2">
+                  <Label>ثمن اللتر ({currency}) <span className="text-destructive">*</span></Label>
+                  <Input
+                    type="number" step="0.01" min="0" required dir="ltr"
+                    className="text-right font-mono"
+                    value={receiptForm.pricePerLiter}
+                    onChange={(e) => setReceiptForm({ ...receiptForm, pricePerLiter: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>ثمن النقل الإجمالي ({currency})</Label>
                   <Input 
                     type="number" step="0.01" min="0" placeholder="0.00" dir="ltr"
@@ -305,8 +325,9 @@ export default function Milk() {
                     <TableRow>
                       <TableHead>الفلاح</TableHead>
                       <TableHead>الكمية</TableHead>
+                      <TableHead>الثمن/لتر</TableHead>
                       <TableHead>الدهن %</TableHead>
-                      <TableHead>ثمن النقل/لتر</TableHead>
+                      <TableHead>ثمن النقل</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -322,6 +343,9 @@ export default function Milk() {
                         <TableRow key={r.id}>
                           <TableCell className="font-medium">{getMemberName(r.memberId)}</TableCell>
                           <TableCell className="font-mono font-bold text-primary">{r.quantityLiters} لتر</TableCell>
+                          <TableCell className="font-mono text-emerald-700 font-semibold">
+                            {r.pricePerLiter ? `${r.pricePerLiter} ${currency}` : '—'}
+                          </TableCell>
                           <TableCell className="font-mono text-muted-foreground">{r.fat ? `${r.fat}%` : '—'}</TableCell>
                           <TableCell className="font-mono text-muted-foreground">
                             {r.transportCost ? `${r.transportCost} ${currency}` : '—'}
