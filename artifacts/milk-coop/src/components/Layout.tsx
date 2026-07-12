@@ -4,7 +4,6 @@ import { useSettings } from '@/hooks/useSettings';
 import {
   LayoutDashboard,
   Users,
-  Truck,
   Droplets,
   Calculator,
   FileText,
@@ -32,14 +31,9 @@ interface NavItem {
   roles: Role[];
 }
 
-// Regular accounts (collector/accountant) only ever see the milk page --
-// receiving ("الاستلام") and delivery ("التسليم") live inside it. Everything
-// else in the control panel (members, transporters, budget, reports,
-// settings, the dashboard) is admin-only.
 const navItems: NavItem[] = [
   { href: '/', label: 'لوحة القيادة', icon: LayoutDashboard, roles: ['admin'] },
-  { href: '/members', label: 'الأعضاء', icon: Users, roles: ['admin'] },
-  { href: '/transporters', label: 'الناقلون', icon: Truck, roles: ['admin'] },
+  { href: '/members', label: 'الفلاحون', icon: Users, roles: ['admin'] },
   { href: '/milk', label: 'الحليب', icon: Droplets, roles: ['admin', 'collector', 'accountant'] },
   { href: '/budget', label: 'الميزانية', icon: Calculator, roles: ['admin'] },
   { href: '/reports', label: 'التقارير', icon: FileText, roles: ['admin'] },
@@ -89,6 +83,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     </nav>
   );
 
+  const roleLabel =
+    appUser?.role === 'admin' ? 'مدير' :
+    appUser?.role === 'accountant' ? 'محاسب' : 'جامع الحليب';
+
   return (
     <div className="flex min-h-[100dvh] w-full bg-background font-sans" dir="rtl">
       {/* Desktop Sidebar */}
@@ -108,9 +106,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex flex-col overflow-hidden">
               <span className="truncate text-sm font-medium">{appUser?.displayName || appUser?.email}</span>
-              <span className="text-xs text-muted-foreground capitalize">
-                {appUser?.role === 'admin' ? 'مدير' : appUser?.role === 'accountant' ? 'محاسب' : 'جامع الحليب'}
-              </span>
+              <span className="text-xs text-muted-foreground capitalize">{roleLabel}</span>
             </div>
           </div>
         </div>
@@ -121,7 +117,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 md:hidden">
           <div className="flex items-center gap-3">
             <img src={settings?.logoUrl || defaultLogo} alt={settings?.coopName || 'شعار التعاونية'} className="h-8 w-8 object-contain rounded-full" />
-            <h1 className="text-lg font-bold truncate">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
+            <div className="flex flex-col">
+              <h1 className="text-base font-bold truncate leading-tight">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
+              {appUser?.displayName && (
+                <span className="text-xs text-muted-foreground truncate">{appUser.displayName} · {roleLabel}</span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <OfflineIndicator compact />
