@@ -7,7 +7,6 @@ import SignIn from '@/pages/sign-in';
 import Dashboard from '@/pages/dashboard';
 import SettingsPage from '@/pages/settings';
 import Members from '@/pages/members';
-import Transporters from '@/pages/transporters';
 import Milk from '@/pages/milk';
 import Budget from '@/pages/budget';
 import Reports from '@/pages/reports';
@@ -35,9 +34,6 @@ function Router() {
           <Members />
         </ProtectedRoute>
       </Route>
-      <Route path="/transporters">
-        <ProtectedRoute roles={['admin']}>
-          <Transporters />
         </ProtectedRoute>
       </Route>
       <Route path="/milk">
