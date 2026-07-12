@@ -9,6 +9,7 @@ import type {
   Income,
   Expense,
   AppUser,
+  Invoice,
 } from '@/lib/types';
 
 export const useMembers = () => useCollection<Member>('members');
@@ -24,6 +25,8 @@ export const useExpenses = () =>
   useCollection<Expense>('expenses', [orderBy('date', 'desc')]);
 /** Admin-only: manage user accounts + roles. */
 export const useUsers = () => useCollection<AppUser & { id: string }>('users');
+/** Invoices: payment status per member per month. */
+export const useInvoices = () => useCollection<Invoice>('invoices');
 
 /** Milk received for a single member, newest first. */
 export const useMemberMilkReceived = (memberId: string) =>
