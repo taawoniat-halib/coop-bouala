@@ -1,61 +1,57 @@
 name: Build & Deploy to GitHub Pages
 
-  on:
-    push:
-      branches: [main]
-    workflow_dispatch:
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
-  permissions:
-    contents: write
+permissions:
+  contents: write
 
-  jobs:
-    build-and-deploy:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        - name: Setup pnpm
-          uses: pnpm/action-setup@v4
-          with:
-            version: 10
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-        - name: Setup Node.js
-          uses: actions/setup-node@v4
-          with:
-            node-version: '24'
-            cache: 'pnpm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
 
-        # Install all workspace packages from the repo root so catalog: and
-        # workspace:* dependencies resolve correctly.
-        - name: Install dependencies
-          run: pnpm install
+      # Run from repo root so catalog: and workspace:* deps resolve correctly.
+      - name: Install dependencies
+        run: pnpm install
 
-        # Build shared composite libs (api-spec, api-client-react, etc.)
-        - name: Build workspace libs
-          run: pnpm run typecheck:libs
+      # Build composite libs (api-spec, api-client-react, etc.)
+      - name: Build workspace libs
+        run: pnpm run typecheck:libs
 
-        # Build the milk-coop Vite app. PORT and BASE_PATH are required by
-        # vite.config.ts; Firebase variables are injected via define and
-        # pulled from GitHub Actions Variables (Settings → Variables and secrets).
-        - name: Build milk-coop
-          working-directory: artifacts/milk-coop
-          env:
-            PORT: "3000"
-            BASE_PATH: "/coop-bouala/"
-            NODE_ENV: production
-            FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
-            FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
-            FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
-            FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
-            FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
-            FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
-          run: pnpm run build
+      # Vite requires PORT, BASE_PATH, and Firebase vars at build time.
+      - name: Build milk-coop
+        working-directory: artifacts/milk-coop
+        env:
+          PORT: "3000"
+          BASE_PATH: "/coop-bouala/"
+          NODE_ENV: production
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+        run: pnpm run build
 
-        - name: Deploy to gh-pages
-          uses: peaceiris/actions-gh-pages@v4
-          with:
-            github_token: ${{ secrets.GITHUB_TOKEN }}
-            publish_dir: artifacts/milk-coop/dist/public
-            force_orphan: true
-  
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: artifacts/milk-coop/dist/public
+          force_orphan: true
