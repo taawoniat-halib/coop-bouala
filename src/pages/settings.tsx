@@ -221,9 +221,6 @@ export default function SettingsPage() {
                     )}
                     تغيير الشعار
                   </Button>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    يفضل استخدام صورة مربعة (PNG أو JPG)
-                  </p>
                 </div>
               </div>
 
@@ -280,12 +277,11 @@ export default function SettingsPage() {
                 <DollarSign className="h-5 w-5 text-primary" />
                 أسعار الحليب
               </CardTitle>
-              <CardDescription>تُستخدم هذه الأسعار في جميع الحسابات والتقارير</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="purchasePrice">ثمن الشراء من الفلاح ({currencyLabel}/لتر)</Label>
+                  <Label htmlFor="purchasePrice">ثمن الشراء ({currencyLabel}/لتر)</Label>
                   <Input
                     id="purchasePrice"
                     type="number"
@@ -312,14 +308,6 @@ export default function SettingsPage() {
                     placeholder="4.50"
                   />
                 </div>
-              </div>
-              <div className="rounded-lg bg-muted/30 border border-border p-3 text-sm text-muted-foreground">
-                <p>
-                  • <strong>ثمن الشراء</strong>: الثمن الذي تدفعه التعاونية للفلاح مقابل كل لتر حليب
-                </p>
-                <p>
-                  • <strong>ثمن البيع</strong>: الثمن الذي تبيع به التعاونية الحليب للشركة
-                </p>
               </div>
               <Button onClick={handleSaveSettings} disabled={isSaving} className="w-full gap-2">
                 {isSaving ? (

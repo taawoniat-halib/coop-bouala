@@ -212,9 +212,6 @@ export default function InvitationsPage() {
           <Card>
             <CardHeader>
               <CardTitle>الرسالة</CardTitle>
-              <CardDescription>
-                يمكنك استخدام {'{اسم_الفلاح}'} وسيُستبدل باسم كل منخرط
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
