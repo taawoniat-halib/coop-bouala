@@ -17,7 +17,7 @@ import {
   monthKey,
   priceForMonth,
 } from '@/lib/calculations';
-import { printFarmerInvoice, exportToPdf, exportToExcel, shareOnWhatsApp } from '@/lib/exportUtils';
+import { printFarmerInvoice, printCompanyInvoice, exportToPdf, exportToExcel, shareOnWhatsApp, buildFarmerWhatsAppMessage } from '@/lib/exportUtils';
 import {
   Table,
   TableBody,
@@ -263,17 +263,24 @@ export default function Reports() {
   };
 
   const handlePrintFarmerInvoice = async (st: (typeof memberStatements)[0]) => {
+    const member = members.find((m) => m.id === st.memberId);
     const farmerReceipts = receipts.filter(
       (r) => r.memberId === st.memberId && monthKey(r.date) === monthFilter,
     );
     await printFarmerInvoice({
       farmerName: st.memberName,
+      farmerPhone: member?.phone,
+      farmerCin: member?.cin,
       month: monthFilter,
       receipts: farmerReceipts,
       monthlyPricePerLiter: priceForMonth(prices, monthFilter),
       coopName: settings?.coopName || 'تعاونية كوب بوعلا',
+      coopPhone: settings?.phone,
+      coopAddress: settings?.address,
       logoUrl: settings?.logoUrl,
       currency,
+      paid: getInvoicePaid(st.memberId),
+      invoiceSeq: memberStatements.findIndex(s => s.memberId === st.memberId) + 1,
     });
   };
 
@@ -281,18 +288,26 @@ export default function Reports() {
     setPrintingMemberId(memberId);
     setInvoiceDialogOpen(false);
     try {
+      const member = members.find((m) => m.id === memberId);
       const farmerReceipts = receipts.filter(
         (r) => r.memberId === memberId && monthKey(r.date) === monthFilter,
       );
       const st = memberStatements.find((s) => s.memberId === memberId);
+      const seq = st ? memberStatements.findIndex(s => s.memberId === memberId) + 1 : undefined;
       await printFarmerInvoice({
         farmerName: memberName,
+        farmerPhone: member?.phone,
+        farmerCin: member?.cin,
         month: monthFilter,
         receipts: farmerReceipts,
         monthlyPricePerLiter: st?.pricePerLiter ?? priceForMonth(prices, monthFilter),
         coopName: settings?.coopName || 'تعاونية كوب بوعلا',
+        coopPhone: settings?.phone,
+        coopAddress: settings?.address,
         logoUrl: settings?.logoUrl,
         currency,
+        paid: st ? getInvoicePaid(memberId) : false,
+        invoiceSeq: seq,
       });
     } finally {
       setPrintingMemberId(null);
@@ -302,7 +317,18 @@ export default function Reports() {
   const handleShareStatement = (st: (typeof memberStatements)[0]) => {
     const member = members.find((m) => m.id === st.memberId);
     const phone = member?.phone || settings?.phone;
-    const message = `مرحباً ${st.memberName}،\nتفاصيل حسابك لشهر ${monthFilter} لدى ${settings?.coopName}:\n- الكمية: ${st.totalLiters} لتر | الثمن: ${st.pricePerLiter.toFixed(2)} ${currency}/ل\n- الإجمالي: ${st.grossAmount.toFixed(2)} | النقل: ${st.transportCost.toFixed(2)}\n- الصافي المستحق: ${st.netAmount.toFixed(2)} ${currency}\nشكراً.`;
+    const message = buildFarmerWhatsAppMessage({
+      farmerName: st.memberName,
+      month: monthFilter,
+      totalLiters: st.totalLiters,
+      pricePerLiter: st.pricePerLiter,
+      grossAmount: st.grossAmount,
+      transportCost: st.transportCost,
+      netAmount: st.netAmount,
+      currency,
+      coopName: settings?.coopName || 'تعاونية كوب بوعلا',
+      paid: getInvoicePaid(st.memberId),
+    });
     shareOnWhatsApp(message, phone);
   };
 
@@ -316,6 +342,23 @@ export default function Reports() {
         : monthLabel(monthFilter);
     const message = `مرحباً ${member.fullName}،\nكشف حساب — ${period} — ${settings?.coopName || 'التعاونية'}:\n• مجموع اللترات: ${farmerReport.totalLiters.toFixed(1)} لتر\n• مبلغ النقل المخصوم: ${farmerReport.transportCost.toFixed(2)} ${currency}\n• الصافي الإجمالي: ${farmerReport.netAmount.toFixed(2)} ${currency}\n• قيمة شراء الحليب: ${farmerReport.purchaseValue.toFixed(2)} ${currency}\n• قيمة بيع الحليب: ${farmerReport.sellValue.toFixed(2)} ${currency}\nشكراً.`;
     shareOnWhatsApp(message, phone);
+  };
+
+  const handlePrintCompanyInvoice = async (companyName: string) => {
+    const companyDeliveriesRaw = deliveries.filter(
+      (d) => d.companyName === companyName && monthKey(d.date) === monthFilter,
+    );
+    await printCompanyInvoice({
+      companyName,
+      month: monthFilter,
+      deliveries: companyDeliveriesRaw,
+      coopName: settings?.coopName || 'تعاونية كوب بوعلا',
+      coopPhone: settings?.phone,
+      coopAddress: settings?.address,
+      logoUrl: settings?.logoUrl,
+      currency,
+      invoiceSeq: companyDeliveries.findIndex((c) => c.companyName === companyName) + 1,
+    });
   };
 
   // ── Export helpers ──
@@ -609,6 +652,7 @@ export default function Reports() {
                       <TableHead>الصافي</TableHead>
                       <TableHead>الحالة</TableHead>
                       <TableHead></TableHead>
+                    <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -827,6 +871,17 @@ export default function Reports() {
                               })}{' '}
                               {currency}
                             </TableCell>
+                            <TableCell className="text-left">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 h-7 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
+                                onClick={() => handlePrintCompanyInvoice(d.companyName)}
+                              >
+                                <Printer className="h-3 w-3" />
+                                فاتورة
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))
                       )}
@@ -843,6 +898,7 @@ export default function Reports() {
                             })}{' '}
                             {currency}
                           </TableCell>
+                          <TableCell></TableCell>
                         </TableRow>
                       )}
                     </TableBody>
