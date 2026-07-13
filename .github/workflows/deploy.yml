@@ -15,33 +15,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: npm install
         env:
-          npm_config_registry: https://registry.npmjs.org
+          npm_config_registry: https://registry.npmjs.org/
 
       - name: Build
+        run: npx vite build --base=/coop-bouala/
         env:
-          PORT: "3000"
-          BASE_PATH: "/coop-bouala/"
           NODE_ENV: production
-          FIREBASE_API_KEY: "AIzaSyCdvHYqcq80tG8tAfrE0H0QKKUituyl_Mc"
-          FIREBASE_AUTH_DOMAIN: "taawoniat-halib.firebaseapp.com"
-          FIREBASE_PROJECT_ID: "taawoniat-halib"
-          FIREBASE_STORAGE_BUCKET: "taawoniat-halib.firebasestorage.app"
-          FIREBASE_MESSAGING_SENDER_ID: "822315494823"
-          FIREBASE_APP_ID: "1:822315494823:web:53942719448dd5eba79a82"
-        run: pnpm run build
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
