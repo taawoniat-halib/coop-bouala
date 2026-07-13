@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/coop-bouala/sw.js', { scope: '/coop-bouala/' })})}
