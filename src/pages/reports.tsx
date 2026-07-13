@@ -119,8 +119,6 @@ export default function Reports() {
   const [printingMemberId, setPrintingMemberId] = useState<string | null>(null);
 
   // Advanced report state
-  const [advancedFromDate, setAdvancedFromDate] = useState('');
-  const [advancedToDate, setAdvancedToDate] = useState('');
   const [selectedFarmerIdReport, setSelectedFarmerIdReport] = useState('');
 
   const currency = settings?.currency === 'MAD' ? 'درهم' : (settings?.currency ?? 'درهم');
@@ -164,48 +162,20 @@ export default function Reports() {
   const totalMembersNet = memberStatements.reduce((s, st) => s + st.netAmount, 0);
   const totalCompanyAmount = companyDeliveries.reduce((s, d) => s + d.amount, 0);
 
-  // ── Advanced: days grid ──
-  const daysInMonth = useMemo(() => {
-    const [year, month] = monthFilter.split('-').map(Number);
-    return new Date(year, month, 0).getDate();
-  }, [monthFilter]);
-
-  const days = useMemo(() => Array.from({ length: daysInMonth }, (_, i) => i + 1), [daysInMonth]);
-
-  /** Receipts filtered by the advanced date range (or default to monthFilter) */
-  const advancedReceipts = useMemo(() => {
-    if (advancedFromDate && advancedToDate) {
-      return receipts.filter((r) => r.date >= advancedFromDate && r.date <= advancedToDate);
-    }
-    return receipts.filter((r) => monthKey(r.date) === monthFilter);
-  }, [receipts, advancedFromDate, advancedToDate, monthFilter]);
-
-  /** Grid: memberId → day → liters */
-  const memberDailyGrid = useMemo(() => {
-    const grid = new Map<string, Map<number, number>>();
-    for (const r of advancedReceipts) {
-      if (!grid.has(r.memberId)) grid.set(r.memberId, new Map());
-      const day = parseInt(r.date.split('-')[2]);
-      const dayMap = grid.get(r.memberId)!;
-      dayMap.set(day, (dayMap.get(day) ?? 0) + r.quantityLiters);
-    }
-    return grid;
-  }, [advancedReceipts]);
-
-  /** Members that have at least one receipt in the advanced period */
-  const gridMembers = useMemo(() => {
-    const ids = new Set(advancedReceipts.map((r) => r.memberId));
-    return members
-      .filter((m) => ids.has(m.id))
-      .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ar'));
-  }, [members, advancedReceipts]);
+  /** Receipts for the selected month (used by the farmer report) */
+  const monthReceiptsForFarmer = useMemo(
+    () => receipts.filter((r) => monthKey(r.date) === monthFilter),
+    [receipts, monthFilter],
+  );
 
   /** Individual farmer monthly report */
   const farmerReport = useMemo(() => {
     if (!selectedFarmerIdReport) return null;
     const member = members.find((m) => m.id === selectedFarmerIdReport);
     if (!member) return null;
-    const farmerReceipts = advancedReceipts.filter((r) => r.memberId === selectedFarmerIdReport);
+    const farmerReceipts = monthReceiptsForFarmer.filter(
+      (r) => r.memberId === selectedFarmerIdReport,
+    );
     const totalLiters = farmerReceipts.reduce((s, r) => s + r.quantityLiters, 0);
     const transportCost = farmerReceipts.reduce((s, r) => s + (r.transportCost ?? 0), 0);
     const monthPrice = priceForMonth(prices, monthFilter);
@@ -231,7 +201,7 @@ export default function Reports() {
   }, [
     selectedFarmerIdReport,
     members,
-    advancedReceipts,
+    monthReceiptsForFarmer,
     prices,
     monthFilter,
     milkPurchasePrice,
@@ -336,11 +306,7 @@ export default function Reports() {
     if (!farmerReport) return;
     const member = farmerReport.member;
     const phone = member.phone || settings?.phone;
-    const period =
-      advancedFromDate && advancedToDate
-        ? `من ${advancedFromDate} إلى ${advancedToDate}`
-        : monthLabel(monthFilter);
-    const message = `مرحباً ${member.fullName}،\nكشف حساب — ${period} — ${settings?.coopName || 'التعاونية'}:\n• مجموع اللترات: ${farmerReport.totalLiters.toFixed(1)} لتر\n• مبلغ النقل المخصوم: ${farmerReport.transportCost.toFixed(2)} ${currency}\n• الصافي الإجمالي: ${farmerReport.netAmount.toFixed(2)} ${currency}\n• قيمة شراء الحليب: ${farmerReport.purchaseValue.toFixed(2)} ${currency}\n• قيمة بيع الحليب: ${farmerReport.sellValue.toFixed(2)} ${currency}\nشكراً.`;
+    const message = `مرحباً ${member.fullName}،\nكشف حساب — ${monthLabel(monthFilter)} — ${settings?.coopName || 'التعاونية'}:\n• مجموع اللترات: ${farmerReport.totalLiters.toFixed(1)} لتر\n• مبلغ النقل المخصوم: ${farmerReport.transportCost.toFixed(2)} ${currency}\n• الصافي الإجمالي: ${farmerReport.netAmount.toFixed(2)} ${currency}\n• قيمة شراء الحليب: ${farmerReport.purchaseValue.toFixed(2)} ${currency}\n• قيمة بيع الحليب: ${farmerReport.sellValue.toFixed(2)} ${currency}\nشكراً.`;
     shareOnWhatsApp(message, phone);
   };
 
@@ -408,52 +374,6 @@ export default function Reports() {
     );
   };
 
-  const handleExportGridPdf = () => {
-    const columns = [
-      { header: 'المنخرط', key: 'name' },
-      ...days.map((d) => ({ header: String(d), key: `d${d}` })),
-      { header: 'المجموع', key: 'total' },
-    ];
-    const rows = gridMembers.map((m) => {
-      const dayMap = memberDailyGrid.get(m.id) ?? new Map();
-      const total = Array.from(dayMap.values()).reduce((s, v) => s + v, 0);
-      const row: Record<string, string | number> = { name: m.fullName, total: total.toFixed(1) };
-      days.forEach((d) => {
-        row[`d${d}`] = dayMap.get(d) ? dayMap.get(d)!.toFixed(1) : '';
-      });
-      return row;
-    });
-    exportToPdf(
-      `التقرير الإجمالي — ${monthLabel(monthFilter)}`,
-      columns,
-      rows,
-      `تقرير-إجمالي-${monthFilter}`,
-    );
-  };
-
-  const handleExportGridExcel = () => {
-    const columns = [
-      { header: 'المنخرط', key: 'name' },
-      ...days.map((d) => ({ header: String(d), key: `d${d}` })),
-      { header: 'المجموع (ل)', key: 'total' },
-    ];
-    const rows = gridMembers.map((m) => {
-      const dayMap = memberDailyGrid.get(m.id) ?? new Map();
-      const total = Array.from(dayMap.values()).reduce((s, v) => s + v, 0);
-      const row: Record<string, string | number> = { name: m.fullName, total };
-      days.forEach((d) => {
-        row[`d${d}`] = dayMap.get(d) ?? '';
-      });
-      return row;
-    });
-    exportToExcel(
-      `إجمالي ${monthLabel(monthFilter)}`,
-      columns,
-      rows,
-      `تقرير-إجمالي-${monthFilter}`,
-    );
-  };
-
   const handleExportFarmerPdf = () => {
     if (!farmerReport) return;
     exportToPdf(
@@ -465,13 +385,7 @@ export default function Reports() {
       [
         { label: 'اسم المنخرط', value: farmerReport.member.fullName },
         { label: 'اسم المركز', value: settings?.coopName || '' },
-        {
-          label: 'الفترة',
-          value:
-            advancedFromDate && advancedToDate
-              ? `${advancedFromDate} → ${advancedToDate}`
-              : monthLabel(monthFilter),
-        },
+        { label: 'الشهر', value: monthLabel(monthFilter) },
         { label: 'مجموع اللترات', value: `${farmerReport.totalLiters.toFixed(1)} ل` },
         {
           label: 'مبلغ النقل المخصوم',
@@ -568,9 +482,9 @@ export default function Reports() {
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">التقارير</h2>
+          <h2 className="text-3xl font-bold tracking-tight">الفواتير والكشوفات</h2>
           <p className="text-muted-foreground mt-1">
-            مستحقات المنخرطين وتسليمات الشركات والتقارير التفصيلية
+            مستحقات المنخرطين، تسليمات الشركات، وكشف حساب منخرط
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -595,7 +509,7 @@ export default function Reports() {
         <TabsList className="mb-6">
           <TabsTrigger value="members">مستحقات المنخرطين</TabsTrigger>
           <TabsTrigger value="companies">تسليمات الشركات</TabsTrigger>
-          <TabsTrigger value="advanced">التقرير التفصيلي</TabsTrigger>
+          <TabsTrigger value="advanced">كشف حساب منخرط</TabsTrigger>
         </TabsList>
 
         {/* ─── TAB: MEMBERS ─── */}
@@ -908,175 +822,6 @@ export default function Reports() {
         {/* ─── TAB: ADVANCED ─── */}
         <TabsContent value="advanced">
           <div className="space-y-6">
-            {/* Date range filter */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">اختيار الفترة</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap items-end gap-4">
-                  <div className="space-y-1">
-                    <Label>من تاريخ</Label>
-                    <Input
-                      type="date"
-                      value={advancedFromDate}
-                      onChange={(e) => setAdvancedFromDate(e.target.value)}
-                      dir="ltr"
-                      className="w-44"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>إلى تاريخ</Label>
-                    <Input
-                      type="date"
-                      value={advancedToDate}
-                      onChange={(e) => setAdvancedToDate(e.target.value)}
-                      dir="ltr"
-                      className="w-44"
-                    />
-                  </div>
-                  {(advancedFromDate || advancedToDate) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setAdvancedFromDate('');
-                        setAdvancedToDate('');
-                      }}
-                    >
-                      مسح الفترة (استخدام الشهر)
-                    </Button>
-                  )}
-                  <p className="text-xs text-muted-foreground self-end">
-                    {advancedFromDate && advancedToDate
-                      ? `الفترة: ${advancedFromDate} → ${advancedToDate}`
-                      : `الشهر الحالي: ${monthLabel(monthFilter)}`}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ── Overall grid ── */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <CardTitle>التقرير الإجمالي — كميات الحليب اليومية</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={handleExportGridPdf}
-                    >
-                      <FileText className="h-3.5 w-3.5" /> PDF
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={handleExportGridExcel}
-                    >
-                      <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {gridMembers.length === 0 ? (
-                  <p className="text-center py-8 text-muted-foreground">
-                    لا توجد بيانات للفترة المحددة
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="bg-muted/50">
-                          <th className="border border-border px-2 py-2 text-right font-semibold min-w-[120px]">
-                            #
-                          </th>
-                          <th className="border border-border px-2 py-2 text-right font-semibold min-w-[160px]">
-                            المنخرط
-                          </th>
-                          {days.map((d) => (
-                            <th
-                              key={d}
-                              className="border border-border px-1 py-2 text-center font-semibold min-w-[32px] text-xs"
-                            >
-                              {d}
-                            </th>
-                          ))}
-                          <th className="border border-border px-2 py-2 text-center font-semibold bg-primary/10 min-w-[70px]">
-                            المجموع
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {gridMembers.map((m, idx) => {
-                          const dayMap = memberDailyGrid.get(m.id) ?? new Map();
-                          const total = Array.from(dayMap.values()).reduce((s, v) => s + v, 0);
-                          return (
-                            <tr
-                              key={m.id}
-                              className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
-                            >
-                              <td className="border border-border px-2 py-1.5 text-center text-xs text-muted-foreground">
-                                {idx + 1}
-                              </td>
-                              <td className="border border-border px-2 py-1.5 font-medium">
-                                {m.fullName}
-                              </td>
-                              {days.map((d) => {
-                                const val = dayMap.get(d);
-                                return (
-                                  <td
-                                    key={d}
-                                    className="border border-border px-1 py-1.5 text-center font-mono text-xs"
-                                  >
-                                    {val ? val.toFixed(1) : ''}
-                                  </td>
-                                );
-                              })}
-                              <td className="border border-border px-2 py-1.5 text-center font-mono font-bold text-primary bg-primary/5">
-                                {total.toFixed(1)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {/* Totals row */}
-                        <tr className="bg-muted/50 font-bold">
-                          <td className="border border-border px-2 py-2 text-center" colSpan={2}>
-                            المجموع
-                          </td>
-                          {days.map((d) => {
-                            const dayTotal = gridMembers.reduce(
-                              (s, m) => s + (memberDailyGrid.get(m.id)?.get(d) ?? 0),
-                              0,
-                            );
-                            return (
-                              <td
-                                key={d}
-                                className="border border-border px-1 py-2 text-center font-mono text-xs"
-                              >
-                                {dayTotal > 0 ? dayTotal.toFixed(1) : ''}
-                              </td>
-                            );
-                          })}
-                          <td className="border border-border px-2 py-2 text-center font-mono text-primary bg-primary/10">
-                            {gridMembers
-                              .reduce((s, m) => {
-                                const dayMap = memberDailyGrid.get(m.id) ?? new Map();
-                                return s + Array.from(dayMap.values()).reduce((a, v) => a + v, 0);
-                              }, 0)
-                              .toFixed(1)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {/* ── Individual farmer report ── */}
             <Card>
               <CardHeader>

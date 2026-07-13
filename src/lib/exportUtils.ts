@@ -66,9 +66,20 @@ export async function exportToExcel(
   fileName: string,
 ) {
   const [XLSX, { saveAs }] = await Promise.all([import('xlsx'), import('file-saver')]);
-  const worksheet = XLSX.utils.json_to_sheet(
-    rows.map((row) => Object.fromEntries(columns.map((c) => [c.header, row[c.key] ?? '']))),
-  );
+
+  // aoa_to_sheet guarantees the header row even when rows is empty
+  const headerRow = columns.map((c) => c.header);
+  const dataRows = rows.map((row) => columns.map((c) => row[c.key] ?? ''));
+  const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
+
+  // Column widths (auto-size: at least 12, up to 30 chars)
+  worksheet['!cols'] = columns.map((c) => ({
+    wch: Math.min(30, Math.max(12, c.header.length + 4)),
+  }));
+
+  // RTL direction for Arabic content
+  worksheet['!sheetView'] = [{ rightToLeft: true }] as object[];
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });

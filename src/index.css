@@ -257,3 +257,21 @@
     inset: -1px;
   }
 }
+
+/* ── Print: hide app chrome, show only content ── */
+@media print {
+  aside,
+  header,
+  .print-hide,
+  [data-sidebar],
+  nav {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}

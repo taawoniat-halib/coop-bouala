@@ -36,8 +36,8 @@ const navItems: NavItem[] = [
   { href: '/milk', label: 'الحليب', icon: Droplets, roles: ['admin', 'collector', 'accountant'] },
   { href: '/transporters', label: 'الناقلون', icon: Truck, roles: ['admin'] },
   { href: '/budget', label: 'الميزانية', icon: Calculator, roles: ['admin', 'accountant'] },
-  { href: '/reports', label: 'التقارير', icon: FileText, roles: ['admin', 'accountant'] },
-  { href: '/monthly-report', label: 'التقارير الشهرية', icon: BarChart3, roles: ['admin', 'accountant'] },
+  { href: '/reports', label: 'الفواتير والكشوفات', icon: FileText, roles: ['admin', 'accountant'] },
+  { href: '/monthly-report', label: 'التقرير الشهري', icon: BarChart3, roles: ['admin', 'accountant'] },
   { href: '/invitations', label: 'الدعوات', icon: MessageCircle, roles: ['admin'] },
   { href: '/settings', label: 'الإعدادات', icon: SettingsIcon, roles: ['admin'] },
 ];
