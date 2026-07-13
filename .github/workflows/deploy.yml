@@ -17,18 +17,21 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Upgrade npm
+        # The npm version bundled with Node 20 on GitHub-hosted runners (10.8.2)
+        # has a deterministic "Exit handler never called!" bug that leaves
+        # node_modules incomplete on `npm ci` while still exiting 0. Upgrading
+        # npm itself (not retrying) is the real fix.
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: |
           set +e
           success=0
-          for i in 1 2 3 4 5; do
+          for i in 1 2 3; do
             echo "npm ci attempt $i..."
             npm ci
             ci_status=$?
-            # npm ci can print its internal "Exit handler never called!" bug and
-            # still return exit code 0 while leaving node_modules incomplete
-            # (missing devDependency type packages), so verify the install is
-            # actually complete instead of trusting the exit code alone.
             if [ $ci_status -eq 0 ] && [ -s node_modules/@types/node/index.d.ts ] && [ -s node_modules/vite/client.d.ts ]; then
               success=1
               break
