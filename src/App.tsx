@@ -12,6 +12,7 @@ import Budget from '@/pages/budget';
 import Reports from '@/pages/reports';
 import Transporters from '@/pages/transporters';
 import InvitationsPage from '@/pages/invitations';
+import MonthlyReport from '@/pages/monthly-report';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -54,6 +55,11 @@ function Router() {
       <Route path="/transporters">
         <ProtectedRoute roles={['admin']}>
           <Transporters />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/monthly-report">
+        <ProtectedRoute roles={['admin', 'accountant']}>
+          <MonthlyReport />
         </ProtectedRoute>
       </Route>
       <Route path="/invitations">

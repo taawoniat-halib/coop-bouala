@@ -13,6 +13,7 @@ import {
   Truck,
   ChevronRight,
   MessageCircle,
+  BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { href: '/transporters', label: 'الناقلون', icon: Truck, roles: ['admin'] },
   { href: '/budget', label: 'الميزانية', icon: Calculator, roles: ['admin', 'accountant'] },
   { href: '/reports', label: 'التقارير', icon: FileText, roles: ['admin', 'accountant'] },
+  { href: '/monthly-report', label: 'التقارير الشهرية', icon: BarChart3, roles: ['admin', 'accountant'] },
   { href: '/invitations', label: 'الدعوات', icon: MessageCircle, roles: ['admin'] },
   { href: '/settings', label: 'الإعدادات', icon: SettingsIcon, roles: ['admin'] },
 ];
