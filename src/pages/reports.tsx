@@ -526,7 +526,7 @@ export default function Reports() {
             <CommandInput placeholder="ابحث عن منخرط..." className="h-10" />
             <CommandList className="max-h-72">
               <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
-                لا يوجد فلاح بهذا الاسم
+                لا يوجد منخرط بهذا الاسم
               </CommandEmpty>
               {allMembersSorted.map((m) => {
                 const hasData = memberStatements.some((st) => st.memberId === m.id);
@@ -606,7 +606,7 @@ export default function Reports() {
                 <div>
                   <CardTitle>مستحقات المنخرطين — {monthFilter}</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    اضغط <strong>فاتورة</strong> في صف الفلاح أو استخدم زر البحث لطباعة الفاتورة
+                    اضغط <strong>فاتورة</strong> في صف المنخرط أو استخدم زر البحث لطباعة الفاتورته
                     مباشرة.
                   </p>
                 </div>
@@ -634,7 +634,7 @@ export default function Reports() {
                     onClick={() => setInvoiceDialogOpen(true)}
                   >
                     <Search className="h-4 w-4" />
-                    بحث عن فلاح
+                    بحث عن منخرط
                   </Button>
                 </div>
               </div>
@@ -644,7 +644,7 @@ export default function Reports() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>الفلاح</TableHead>
+                      <TableHead>المنخرط</TableHead>
                       <TableHead>الكمية (ل)</TableHead>
                       <TableHead>الثمن/ل</TableHead>
                       <TableHead>الإجمالي</TableHead>
@@ -999,7 +999,7 @@ export default function Reports() {
                             #
                           </th>
                           <th className="border border-border px-2 py-2 text-right font-semibold min-w-[160px]">
-                            الفلاح
+                            المنخرط
                           </th>
                           {days.map((d) => (
                             <th
@@ -1085,7 +1085,7 @@ export default function Reports() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between flex-wrap gap-3">
-                  <CardTitle>التقرير الشهري للفلاح</CardTitle>
+                  <CardTitle>التقرير الشهري للمنخرط</CardTitle>
                   {farmerReport && (
                     <div className="flex items-center gap-2">
                       <Button
@@ -1117,10 +1117,10 @@ export default function Reports() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="max-w-sm">
-                  <Label>اختر الفلاح</Label>
+                  <Label>اختر المنخرط</Label>
                   <Select value={selectedFarmerIdReport} onValueChange={setSelectedFarmerIdReport}>
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="اختر فلاحاً..." />
+                      <SelectValue placeholder="اختر منخرطاً..." />
                     </SelectTrigger>
                     <SelectContent>
                       {allMembersSorted.map((m) => (
@@ -1138,7 +1138,7 @@ export default function Reports() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {[
                         {
-                          label: 'اسم الفلاح',
+                          label: 'اسم المنخرط',
                           value: farmerReport.member.fullName,
                           highlight: false,
                         },
@@ -1236,7 +1236,7 @@ export default function Reports() {
 
                 {selectedFarmerIdReport && !farmerReport && (
                   <p className="text-center py-8 text-muted-foreground">
-                    لا توجد بيانات لهذا الفلاح في الفترة المحددة
+                    لا توجد بيانات لهذا المنخرط في الفترة المحددة
                   </p>
                 )}
               </CardContent>
