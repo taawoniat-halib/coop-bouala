@@ -20,6 +20,7 @@ import {
   generateMonthOptions,
 } from '@/lib/calculations';
 import { printFarmerInvoice, printCompanyInvoice, exportToPdf, exportToExcel, shareOnWhatsApp, buildFarmerWhatsAppMessage } from '@/lib/exportUtils';
+import { ZoomableTable } from '@/components/ZoomableTable';
 import {
   Table,
   TableBody,
@@ -519,7 +520,7 @@ export default function Reports() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <ZoomableTable title={`مستحقات المنخرطين — ${monthFilter}`} className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -553,27 +554,27 @@ export default function Reports() {
                           >
                             <TableCell className="font-medium">{st.memberName}</TableCell>
                             <TableCell className="font-mono">
-                              {st.totalLiters.toLocaleString()}
+                              {st.totalLiters.toLocaleString('fr-MA')}
                             </TableCell>
                             <TableCell className="font-mono">
                               {st.pricePerLiter.toFixed(2)}
                             </TableCell>
                             <TableCell className="font-mono">
-                              {st.grossAmount.toLocaleString(undefined, {
+                              {st.grossAmount.toLocaleString('fr-MA', {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })}
                             </TableCell>
                             <TableCell className="font-mono text-destructive">
                               {st.transportCost > 0
-                                ? st.transportCost.toLocaleString(undefined, {
+                                ? st.transportCost.toLocaleString('fr-MA', {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2,
                                   })
                                 : '—'}
                             </TableCell>
                             <TableCell className="font-mono font-bold text-primary">
-                              {st.netAmount.toLocaleString(undefined, {
+                              {st.netAmount.toLocaleString('fr-MA', {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })}{' '}
@@ -647,13 +648,13 @@ export default function Reports() {
                         <TableCell className="font-mono">
                           {memberStatements
                             .reduce((s, st) => s + st.totalLiters, 0)
-                            .toLocaleString()}
+                            .toLocaleString('fr-MA')}
                         </TableCell>
                         <TableCell></TableCell>
                         <TableCell className="font-mono">
                           {memberStatements
                             .reduce((s, st) => s + st.grossAmount, 0)
-                            .toLocaleString(undefined, {
+                            .toLocaleString('fr-MA', {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -661,13 +662,13 @@ export default function Reports() {
                         <TableCell className="font-mono text-destructive">
                           {memberStatements
                             .reduce((s, st) => s + st.transportCost, 0)
-                            .toLocaleString(undefined, {
+                            .toLocaleString('fr-MA', {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                         </TableCell>
                         <TableCell className="font-mono text-primary">
-                          {totalMembersNet.toLocaleString(undefined, {
+                          {totalMembersNet.toLocaleString('fr-MA', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}{' '}
@@ -683,7 +684,7 @@ export default function Reports() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
+              </ZoomableTable>
             </CardContent>
           </Card>
         </TabsContent>
@@ -708,7 +709,7 @@ export default function Reports() {
                 <Card key={s.label}>
                   <CardContent className="pt-4 text-center">
                     <div className={`text-2xl font-bold font-mono ${s.color}`}>
-                      {s.value.toLocaleString()} ل
+                      {s.value.toLocaleString('fr-MA')} ل
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
                   </CardContent>
@@ -720,7 +721,7 @@ export default function Reports() {
                 <CardTitle>تسليمات الشركات — {monthFilter}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
+                <ZoomableTable title={`تسليمات الشركات — ${monthFilter}`} className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -741,10 +742,10 @@ export default function Reports() {
                           <TableRow key={d.companyName}>
                             <TableCell className="font-medium">{d.companyName}</TableCell>
                             <TableCell className="font-mono font-bold text-emerald-600">
-                              {d.liters.toLocaleString()}
+                              {d.liters.toLocaleString('fr-MA')}
                             </TableCell>
                             <TableCell className="font-mono font-bold">
-                              {d.amount.toLocaleString(undefined, {
+                              {d.amount.toLocaleString('fr-MA', {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })}{' '}
@@ -768,10 +769,10 @@ export default function Reports() {
                         <TableRow className="bg-muted/50 font-bold">
                           <TableCell>المجموع</TableCell>
                           <TableCell className="font-mono">
-                            {companyDeliveries.reduce((s, d) => s + d.liters, 0).toLocaleString()}
+                            {companyDeliveries.reduce((s, d) => s + d.liters, 0).toLocaleString('fr-MA')}
                           </TableCell>
                           <TableCell className="font-mono text-primary">
-                            {totalCompanyAmount.toLocaleString(undefined, {
+                            {totalCompanyAmount.toLocaleString('fr-MA', {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}{' '}
@@ -782,7 +783,7 @@ export default function Reports() {
                       )}
                     </TableBody>
                   </Table>
-                </div>
+                </ZoomableTable>
               </CardContent>
             </Card>
           </div>
@@ -899,7 +900,7 @@ export default function Reports() {
                     </div>
 
                     {/* Receipts detail table */}
-                    <div className="overflow-x-auto">
+                    <ZoomableTable title={`كشف حساب المنخرط — ${monthFilter}`} className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/50">
@@ -940,7 +941,7 @@ export default function Reports() {
                             })}
                         </TableBody>
                       </Table>
-                    </div>
+                    </ZoomableTable>
                   </div>
                 )}
 

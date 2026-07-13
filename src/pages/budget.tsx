@@ -157,7 +157,7 @@ export default function Budget() {
             <ArrowUpRight className="h-4 w-4 text-emerald-500" /> إجمالي المداخيل
           </div>
           <div className="text-3xl font-bold font-mono text-emerald-600" dir="ltr">
-            {totalIncome.toLocaleString()} {currency}
+            {totalIncome.toLocaleString('fr-MA')} {currency}
           </div>
         </div>
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col justify-center">
@@ -165,7 +165,7 @@ export default function Budget() {
             <ArrowDownRight className="h-4 w-4 text-destructive" /> إجمالي المصاريف
           </div>
           <div className="text-3xl font-bold font-mono text-destructive" dir="ltr">
-            {totalExpense.toLocaleString()} {currency}
+            {totalExpense.toLocaleString('fr-MA')} {currency}
           </div>
         </div>
         <div
@@ -179,7 +179,7 @@ export default function Budget() {
             dir="ltr"
           >
             {balance > 0 ? '+' : ''}
-            {balance.toLocaleString()} {currency}
+            {balance.toLocaleString('fr-MA')} {currency}
           </div>
         </div>
       </div>
@@ -326,7 +326,7 @@ export default function Budget() {
                     className={`font-mono font-bold ${tx.type === 'income' ? 'text-emerald-600' : 'text-destructive'}`}
                   >
                     {tx.type === 'income' ? '+' : '-'}
-                    {tx.amount.toLocaleString()} {currency}
+                    {tx.amount.toLocaleString('fr-MA')} {currency}
                   </TableCell>
                   <TableCell className="text-left">
                     <Button

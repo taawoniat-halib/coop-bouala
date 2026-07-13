@@ -31,8 +31,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { exportToExcel, exportToPdf } from '@/lib/exportUtils';
-import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar } from 'lucide-react';
+import { exportToExcel, exportToPdf, shareOnWhatsApp } from '@/lib/exportUtils';
+import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar, Send } from 'lucide-react';
+import { ZoomableTable } from '@/components/ZoomableTable';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const MONTH_OPTIONS = generateMonthOptions(36);
@@ -314,7 +315,7 @@ export default function MonthlyReport() {
     const logoHtml = logoBase64 ? `<img src="${logoBase64}" alt="logo" class="logo" />` : '';
     const coopName = settings?.coopName ?? 'تعاونية كوب بوعلا';
     const now = new Date();
-    const printedAr = now.toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' });
+    const printedAr = now.toLocaleDateString('ar-MA-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' });
     const printedFr = now.toLocaleDateString('fr-MA', { year: 'numeric', month: 'long', day: 'numeric' });
 
     // Build member rows HTML for PDF
@@ -356,29 +357,6 @@ export default function MonthlyReport() {
       const v = dailyTotals.get(d) ?? 0;
       return `<td><strong>${v > 0 ? fmtL(v) : ''}</strong></td>`;
     }).join('');
-
-    // Transport table HTML
-    const tpHtml = transporterRows.length > 0 ? `
-    <h3>جدول الناقلين — Coûts de transport</h3>
-    <table class="small">
-      <thead><tr><th>الناقل</th><th>المنخرطون</th><th>مجموع اللترات</th><th>التكلفة/ل</th><th>الإجمالي (${currency})</th></tr></thead>
-      <tbody>
-        ${transporterRows.map(tp => `<tr>
-          <td class="name">${tp.name}</td>
-          <td>${tp.memberCount}</td>
-          <td>${fmtL(tp.totalLiters)}</td>
-          <td>${fmtM(tp.costPerLiter)}</td>
-          <td class="net">${fmtM(tp.totalCost)}</td>
-        </tr>`).join('')}
-        <tr class="grand"><td colspan="4"><strong>الإجمالي</strong></td><td><strong>${fmtM(G.transport)}</strong></td></tr>
-      </tbody>
-    </table>` : '';
-
-    // Expenses HTML
-    const allExpHtml = [
-      ...monthExpenses.map(e => `<tr><td class="name">${e.label}</td><td class="val">${fmtM(e.amount)}</td></tr>`),
-      ...extraExpenses.map(e => `<tr><td class="name">${e.label}</td><td class="val">${fmtM(e.amount)}</td></tr>`),
-    ].join('');
 
     const html = `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -504,44 +482,8 @@ export default function MonthlyReport() {
   </tbody>
 </table>
 
-<div class="two-col">
-  <div>
-    ${tpHtml}
-    ${(monthExpenses.length > 0 || extraExpenses.length > 0) ? `
-    <h3>المصاريف الأخرى — Autres dépenses</h3>
-    <table class="small">
-      <thead><tr><th class="name">البيان</th><th>المبلغ (${currency})</th></tr></thead>
-      <tbody>
-        ${allExpHtml}
-        <tr class="grand"><td><strong>الإجمالي</strong></td><td><strong>${fmtM(firebaseExpenses + extraExpensesTotal)}</strong></td></tr>
-      </tbody>
-    </table>` : ''}
-  </div>
-  <div>
-    <h3>الملخص المالي الشهري — Bilan financier mensuel</h3>
-    <table class="small">
-      <thead><tr><th class="name">البيان</th><th>المبلغ (${currency})</th></tr></thead>
-      <tbody>
-        <tr><td class="name">مجموع اللترات المستلمة</td><td>${fmtL(G.total)} لتر</td></tr>
-        <tr><td class="name">إجمالي مستحقات المنخرطين (الإجمالي DH)</td><td>${fmtM(G.totalVal)}</td></tr>
-        <tr><td class="name">اقتطاع النقل</td><td style="color:#dc2626">- ${G.transport > 0 ? fmtM(G.transport) : '0'}</td></tr>
-        <tr class="fin-highlight"><td>الصافي المدفوع للمنخرطين</td><td>${fmtM(G.net)}</td></tr>
-        <tr><td colspan="2" style="border:0;height:3px"></td></tr>
-        <tr><td class="name">مداخيل بيع الحليب للشركات</td><td>${fmtM(deliveryIncome) === '—' ? '0' : fmtM(deliveryIncome)}</td></tr>
-        <tr><td class="name">مداخيل أخرى</td><td>${fmtM(otherIncome) === '—' ? '0' : fmtM(otherIncome)}</td></tr>
-        <tr class="fin-highlight"><td>إجمالي المداخيل</td><td>${fmtM(totalIncome) === '—' ? '0' : fmtM(totalIncome)}</td></tr>
-        <tr><td colspan="2" style="border:0;height:3px"></td></tr>
-        <tr><td class="name">تكاليف النقل</td><td style="color:#dc2626">${G.transport > 0 ? fmtM(G.transport) : '0'}</td></tr>
-        <tr><td class="name">مصاريف أخرى</td><td style="color:#dc2626">${fmtM(firebaseExpenses + extraExpensesTotal) === '—' ? '0' : fmtM(firebaseExpenses + extraExpensesTotal)}</td></tr>
-        <tr class="fin-highlight red"><td>إجمالي المصاريف</td><td>${fmtM(totalExpenses) === '—' ? '0' : fmtM(totalExpenses)}</td></tr>
-        <tr class="fin-final"><td><strong>الرصيد النهائي</strong></td><td><strong>${finalBalance >= 0 ? '+' : ''}${finalBalance.toLocaleString('fr-MA', { maximumFractionDigits: 1 })}</strong></td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
 <div class="footer">
-  ${coopName} — التقرير الشهري الرسمي — ${monthLabelAr(monthFilter)}<br>
+  ${coopName} — جدول الحليب التفصيلي — ${monthLabelAr(monthFilter)}<br>
   طُبع بتاريخ ${printedAr} | Imprimé le ${printedFr}
 </div>
 
@@ -690,6 +632,24 @@ export default function MonthlyReport() {
       `ملخص-مالي-${monthFilter}`,
     );
   }
+  function handleFinancialWhatsApp() {
+    const lines = [
+      `*الملخص المالي الشهري — ${monthLabelAr(monthFilter)}*`,
+      '',
+      ...financialRowsData().map((r) => `${r.label}: ${r.value} ${currency}`),
+    ];
+    shareOnWhatsApp(lines.join('\n'));
+  }
+  function handleTransportWhatsApp() {
+    const lines = [
+      `*تكاليف النقل لكل ناقل — ${monthLabelAr(monthFilter)}*`,
+      '',
+      ...transportRowsData().map(
+        (r) => `${r.name}: ${r.totalLiters} لتر — ${r.totalCost} ${currency}`,
+      ),
+    ];
+    shareOnWhatsApp(lines.join('\n'));
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -767,6 +727,7 @@ export default function MonthlyReport() {
               لا توجد بيانات حليب مسجلة لهذا الشهر
             </div>
           ) : (
+            <ZoomableTable title={`جدول الحليب التفصيلي — ${monthLabelAr(monthFilter)}`}>
             <div className="overflow-x-auto">
               <Table className="text-[11px] whitespace-nowrap">
                 <TableHeader>
@@ -894,6 +855,7 @@ export default function MonthlyReport() {
                 </TableBody>
               </Table>
             </div>
+            </ZoomableTable>
           )}
         </CardContent>
       </Card>
@@ -923,6 +885,15 @@ export default function MonthlyReport() {
                 disabled={transporterRows.length === 0}
               >
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                onClick={handleTransportWhatsApp}
+                disabled={transporterRows.length === 0}
+              >
+                <Send className="h-3.5 w-3.5" /> واتساب
               </Button>
             </div>
           </CardHeader>
@@ -970,6 +941,14 @@ export default function MonthlyReport() {
               </Button>
               <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={handleFinancialExcel}>
                 <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                onClick={handleFinancialWhatsApp}
+              >
+                <Send className="h-3.5 w-3.5" /> واتساب
               </Button>
             </div>
           </CardHeader>

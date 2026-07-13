@@ -7,7 +7,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Printer } from 'lucide-react';
+import { Printer, Send } from 'lucide-react';
 import { useRef } from 'react';
 import {
   Table,
@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { shareOnWhatsApp } from '@/lib/exportUtils';
 
 interface Receipt {
   id: string;
@@ -152,6 +153,19 @@ export function TransportPrintDialog({
   const receiptWithTransport = receipts.filter((r) => r.transportCost && r.transportCost > 0);
   const totalTransport = receiptWithTransport.reduce((sum, r) => sum + (r.transportCost || 0), 0);
 
+  const handleWhatsApp = () => {
+    const lines = [
+      `*سجل تكاليف النقل — ${dateLabel}*`,
+      '',
+      ...receiptWithTransport.map(
+        (r) => `${getMemberName(r.memberId)}: ${r.transportCost?.toFixed(2)} ${currency}`,
+      ),
+      '',
+      `إجمالي النقل: ${totalTransport.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
+    ];
+    shareOnWhatsApp(lines.join('\n'));
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -201,7 +215,7 @@ export function TransportPrintDialog({
           {receiptWithTransport.length > 0 && (
             <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
               <div className="font-bold text-lg text-amber-700">
-                إجمالي النقل: {totalTransport.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                إجمالي النقل: {totalTransport.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
               </div>
             </div>
           )}
@@ -209,6 +223,14 @@ export function TransportPrintDialog({
 
         <DialogFooter className="flex gap-2">
           <Button variant="outline">إلغاء</Button>
+          <Button
+            onClick={handleWhatsApp}
+            variant="outline"
+            className="gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+            disabled={receiptWithTransport.length === 0}
+          >
+            <Send className="h-4 w-4" /> إرسال عبر واتساب
+          </Button>
           <Button 
             onClick={handlePrint} 
             className="gap-2 bg-amber-600 hover:bg-amber-700"

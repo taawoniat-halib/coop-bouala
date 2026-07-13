@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import type { Role } from '@/lib/types';
 import defaultLogo from '@/assets/logo.png';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface NavItem {
   href: string;
@@ -115,12 +116,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Users className="h-5 w-5" />
             </div>
-            <div className="flex flex-col overflow-hidden">
+            <div className="flex flex-col overflow-hidden flex-1">
               <span className="truncate text-sm font-medium">
                 {appUser?.displayName || appUser?.email}
               </span>
               <span className="text-xs text-muted-foreground">{roleLabel(appUser?.role)}</span>
             </div>
+            <ThemeToggle />
           </div>
         </div>
       </aside>
@@ -176,6 +178,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               alt={settings?.coopName || 'شعار التعاونية'}
               className="h-8 w-8 object-contain rounded-full"
             />
+            <ThemeToggle />
           </div>
         </header>
 

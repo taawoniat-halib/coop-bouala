@@ -7,7 +7,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Printer } from 'lucide-react';
+import { Printer, Send } from 'lucide-react';
 import { useRef } from 'react';
 import {
   Table,
@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { shareOnWhatsApp } from '@/lib/exportUtils';
 
 interface Receipt {
   id: string;
@@ -149,6 +150,22 @@ export function MilkPrintDialog({
 
   const totalQuantity = receipts.reduce((sum, r) => sum + r.quantityLiters, 0);
 
+  const handleWhatsApp = () => {
+    const lines = [
+      `*سجل استلام الحليب من المنخرطين — ${dateLabel}*`,
+      '',
+      ...receipts.map(
+        (r) =>
+          `${getMemberName(r.memberId)}: ${r.quantityLiters} لتر${
+            r.pricePerLiter ? ` — ${(r.quantityLiters * r.pricePerLiter).toFixed(2)} ${currency}` : ''
+          }`,
+      ),
+      '',
+      `إجمالي الكمية: ${totalQuantity.toLocaleString('fr-MA')} لتر`,
+    ];
+    shareOnWhatsApp(lines.join('\n'));
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -198,12 +215,19 @@ export function MilkPrintDialog({
           </div>
 
           <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
-            <div className="font-bold text-lg">إجمالي الكمية: {totalQuantity.toLocaleString()} لتر</div>
+            <div className="font-bold text-lg">إجمالي الكمية: {totalQuantity.toLocaleString('fr-MA')} لتر</div>
           </div>
         </div>
 
         <DialogFooter className="flex gap-2">
           <Button variant="outline">إلغاء</Button>
+          <Button
+            onClick={handleWhatsApp}
+            variant="outline"
+            className="gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+          >
+            <Send className="h-4 w-4" /> إرسال عبر واتساب
+          </Button>
           <Button onClick={handlePrint} className="gap-2 bg-primary">
             <Printer className="h-4 w-4" /> طباعة الآن
           </Button>

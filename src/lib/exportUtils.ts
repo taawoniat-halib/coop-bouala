@@ -44,7 +44,7 @@ export function exportToPdf(
   <thead><tr>${theadHtml}</tr></thead>
   <tbody>${tbodyHtml}</tbody>
 </table>
-<div class="footer">تعاونية كوب بوعلا — طُبع بتاريخ ${new Date().toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+<div class="footer">تعاونية كوب بوعلا — طُبع بتاريخ ${new Date().toLocaleDateString('ar-MA-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
 </body>
 </html>`;
 
@@ -283,7 +283,7 @@ export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void>
   const totalTransport = rows.reduce((s, r) => s + r.transport, 0);
   const totalNet = rows.reduce((s, r) => s + r.net, 0);
 
-  const printedOn = new Date().toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' });
+  const printedOn = new Date().toLocaleDateString('ar-MA-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' });
   const printedOnFr = new Date().toLocaleDateString('fr-MA', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const rowsHtml = rows.length === 0
@@ -447,7 +447,7 @@ export async function printCompanyInvoice(data: CompanyInvoiceData): Promise<voi
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
   const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
 
-  const printedOn = new Date().toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' });
+  const printedOn = new Date().toLocaleDateString('ar-MA-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' });
   const printedOnFr = new Date().toLocaleDateString('fr-MA', { year: 'numeric', month: 'long', day: 'numeric' });
   const logoHtml = logoBase64 ? `<img src="${logoBase64}" alt="logo" class="logo" />` : '';
 

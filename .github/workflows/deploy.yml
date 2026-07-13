@@ -19,7 +19,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          for i in 1 2 3; do
+            npm ci && break
+            echo "npm ci failed (attempt $i), retrying after cleaning node_modules..."
+            rm -rf node_modules
+            sleep 5
+          done
 
       - name: Build
         run: npm run build

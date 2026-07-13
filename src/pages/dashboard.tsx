@@ -155,7 +155,7 @@ export default function Dashboard() {
             <Droplets className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{summary.todayLiters.toLocaleString()} <span className="text-sm font-normal">لتر</span></p>
+            <p className="text-2xl font-bold">{summary.todayLiters.toLocaleString('fr-MA')} <span className="text-sm font-normal">لتر</span></p>
           </CardContent>
         </Card>
 
@@ -165,7 +165,7 @@ export default function Dashboard() {
             <ArrowDownRight className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{monthlyStock.received.toLocaleString()} <span className="text-sm font-normal">لتر</span></p>
+            <p className="text-2xl font-bold">{monthlyStock.received.toLocaleString('fr-MA')} <span className="text-sm font-normal">لتر</span></p>
           </CardContent>
         </Card>
 
@@ -175,7 +175,7 @@ export default function Dashboard() {
             <ArrowUpRight className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{monthlyStock.delivered.toLocaleString()} <span className="text-sm font-normal">لتر</span></p>
+            <p className="text-2xl font-bold">{monthlyStock.delivered.toLocaleString('fr-MA')} <span className="text-sm font-normal">لتر</span></p>
           </CardContent>
         </Card>
 
@@ -186,7 +186,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${monthlyStock.remaining >= 0 ? '' : 'text-destructive'}`}>
-              {monthlyStock.remaining.toLocaleString()} <span className="text-sm font-normal">لتر</span>
+              {monthlyStock.remaining.toLocaleString('fr-MA')} <span className="text-sm font-normal">لتر</span>
             </p>
             <p className="text-xs text-muted-foreground mt-1">مستلم − مسلَّم</p>
           </CardContent>
@@ -205,28 +205,28 @@ export default function Dashboard() {
             <div className="rounded-lg bg-emerald-500/10 p-3 text-center">
               <p className="text-xs text-muted-foreground mb-1">مبيعات الشركات</p>
               <p className="text-lg font-bold text-emerald-600 font-mono">
-                {monthlyFinance.revenue.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+                {monthlyFinance.revenue.toLocaleString('fr-MA',{minimumFractionDigits:2,maximumFractionDigits:2})}
               </p>
               <p className="text-xs text-muted-foreground">{currency}</p>
             </div>
             <div className="rounded-lg bg-red-500/10 p-3 text-center">
               <p className="text-xs text-muted-foreground mb-1">مستحقات المنخرطين</p>
               <p className="text-lg font-bold text-red-600 font-mono">
-                {monthlyFinance.farmerCost.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+                {monthlyFinance.farmerCost.toLocaleString('fr-MA',{minimumFractionDigits:2,maximumFractionDigits:2})}
               </p>
               <p className="text-xs text-muted-foreground">{currency}</p>
             </div>
             <div className="rounded-lg bg-orange-500/10 p-3 text-center">
               <p className="text-xs text-muted-foreground mb-1">مصاريف النقل + أخرى</p>
               <p className="text-lg font-bold text-orange-600 font-mono">
-                {(monthlyFinance.transportCost + monthlyFinance.otherExpenses).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+                {(monthlyFinance.transportCost + monthlyFinance.otherExpenses).toLocaleString('fr-MA',{minimumFractionDigits:2,maximumFractionDigits:2})}
               </p>
               <p className="text-xs text-muted-foreground">{currency}</p>
             </div>
             <div className={`rounded-lg p-3 text-center ${monthlyFinance.profit >= 0 ? 'bg-primary/10' : 'bg-destructive/10'}`}>
               <p className="text-xs text-muted-foreground mb-1">الربح الصافي</p>
               <p className={`text-lg font-bold font-mono ${monthlyFinance.profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                {monthlyFinance.profit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+                {monthlyFinance.profit.toLocaleString('fr-MA',{minimumFractionDigits:2,maximumFractionDigits:2})}
               </p>
               <p className="text-xs text-muted-foreground">{currency}</p>
             </div>
@@ -247,7 +247,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} reversed />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => [`${v.toLocaleString()} لتر`, 'الكمية']} labelFormatter={l=>`شهر ${l}`} contentStyle={{direction:'rtl',fontSize:12}} />
+                  <Tooltip formatter={(v: number) => [`${v.toLocaleString('fr-MA')} لتر`, 'الكمية']} labelFormatter={l=>`شهر ${l}`} contentStyle={{direction:'rtl',fontSize:12}} />
                   <Area type="monotone" dataKey="liters" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -272,7 +272,7 @@ export default function Dashboard() {
                       {i + 1}
                     </span>
                     <span className="flex-1 truncate text-sm font-medium">{f.name}</span>
-                    <span className="font-mono text-sm text-muted-foreground" dir="ltr">{f.liters.toLocaleString()} ل</span>
+                    <span className="font-mono text-sm text-muted-foreground" dir="ltr">{f.liters.toLocaleString('fr-MA')} ل</span>
                   </li>
                 ))}
               </ul>
@@ -294,7 +294,7 @@ export default function Dashboard() {
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} reversed />
                 <YAxis tick={{ fontSize: 11 }} width={48} />
                 <Tooltip
-                  formatter={(v: number, name) => [`${v.toLocaleString()} ${currency}`, name === 'income' ? 'المداخيل' : 'المصاريف']}
+                  formatter={(v: number, name) => [`${v.toLocaleString('fr-MA')} ${currency}`, name === 'income' ? 'المداخيل' : 'المصاريف']}
                   labelFormatter={l=>`شهر ${l}`}
                   contentStyle={{ direction: 'rtl', fontSize: 12 }}
                 />

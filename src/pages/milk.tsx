@@ -36,6 +36,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { monthKey } from '@/lib/calculations';
 import { MilkPrintDialog } from '@/components/MilkPrintDialog';
 import { TransportPrintDialog } from '@/components/TransportPrintDialog';
+import { ZoomableTable } from '@/components/ZoomableTable';
 
 export default function Milk() {
   const { data: receipts, add: addReceipt, remove: removeReceipt } = useMilkReceived();
@@ -396,7 +397,7 @@ export default function Milk() {
                 <div>
                   <h3 className="font-semibold">سجل الاستلام ليوم {dateLabel}</h3>
                   <div className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full mt-2 inline-block">
-                    المجموع: {filteredReceipts.reduce((sum, r) => sum + r.quantityLiters, 0).toLocaleString()} لتر
+                    المجموع: {filteredReceipts.reduce((sum, r) => sum + r.quantityLiters, 0).toLocaleString('fr-MA')} لتر
                   </div>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -414,7 +415,7 @@ export default function Milk() {
                   />
                 </div>
               </div>
-              <div className="overflow-x-auto flex-1">
+              <ZoomableTable title={`سجل الاستلام ليوم ${dateLabel}`} className="overflow-x-auto flex-1">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -466,7 +467,7 @@ export default function Milk() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
+              </ZoomableTable>
             </div>
           </div>
         </TabsContent>
@@ -561,10 +562,10 @@ export default function Milk() {
               <div className="p-4 border-b border-border bg-muted/20 flex justify-between items-center">
                 <h3 className="font-semibold">سجل التسليم ليوم {dateLabel}</h3>
                 <div className="text-sm font-medium bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full">
-                  المجموع: {filteredDeliveries.reduce((sum, d) => sum + d.quantityLiters, 0).toLocaleString()} لتر
+                  المجموع: {filteredDeliveries.reduce((sum, d) => sum + d.quantityLiters, 0).toLocaleString('fr-MA')} لتر
                 </div>
               </div>
-              <div className="overflow-x-auto flex-1">
+              <ZoomableTable title={`سجل التسليم ليوم ${dateLabel}`} className="overflow-x-auto flex-1">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -593,7 +594,7 @@ export default function Milk() {
                             {d.pricePerLiter} {currency}
                           </TableCell>
                           <TableCell className="font-mono font-bold bg-muted/30">
-                            {(d.quantityLiters * d.pricePerLiter).toLocaleString()} {currency}
+                            {(d.quantityLiters * d.pricePerLiter).toLocaleString('fr-MA')} {currency}
                           </TableCell>
                           <TableCell className="text-left">
                             {isAdmin && (
@@ -612,7 +613,7 @@ export default function Milk() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
+              </ZoomableTable>
             </div>
           </div>
         </TabsContent>
