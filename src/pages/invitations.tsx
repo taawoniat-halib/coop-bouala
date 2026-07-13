@@ -21,45 +21,40 @@ export default function InvitationsPage() {
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [messageTemplate, setMessageTemplate] = useState(
-    `مرحباً {اسم_الفلاح}،\nتدعوكم ${settings?.coopName || 'تعاونية كوب بوعلا'} للتواصل معنا.\nشكراً لتعاونكم.`
+    `مرحباً {اسم_الفلاح}،\nتدعوكم ${settings?.coopName || 'تعاونية كوب بوعلا'} للتواصل معنا.\nشكراً لتعاونكم.`,
   );
 
-  const activeMembers = useMemo(() =>
-    members.filter(m => m.active), [members]
-  );
+  const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
 
   const filteredMembers = useMemo(() => {
     if (!search) return activeMembers;
     const lower = search.toLowerCase();
-    return activeMembers.filter(m => m.fullName.toLowerCase().includes(lower));
+    return activeMembers.filter((m) => m.fullName.toLowerCase().includes(lower));
   }, [activeMembers, search]);
 
-  const membersWithPhone = useMemo(() =>
-    filteredMembers.filter(m => m.phone),
-    [filteredMembers]
-  );
+  const membersWithPhone = useMemo(() => filteredMembers.filter((m) => m.phone), [filteredMembers]);
 
-  const allSelectedOnPage = filteredMembers.length > 0 &&
-    filteredMembers.every(m => selectedIds.has(m.id));
+  const allSelectedOnPage =
+    filteredMembers.length > 0 && filteredMembers.every((m) => selectedIds.has(m.id));
 
   const toggleAll = () => {
     if (allSelectedOnPage) {
-      setSelectedIds(prev => {
+      setSelectedIds((prev) => {
         const next = new Set(prev);
-        filteredMembers.forEach(m => next.delete(m.id));
+        filteredMembers.forEach((m) => next.delete(m.id));
         return next;
       });
     } else {
-      setSelectedIds(prev => {
+      setSelectedIds((prev) => {
         const next = new Set(prev);
-        filteredMembers.forEach(m => next.add(m.id));
+        filteredMembers.forEach((m) => next.add(m.id));
         return next;
       });
     }
   };
 
   const toggleOne = (id: string) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -67,15 +62,19 @@ export default function InvitationsPage() {
     });
   };
 
-  const selectedMembers = useMemo(() =>
-    members.filter(m => selectedIds.has(m.id)),
-    [members, selectedIds]
+  const selectedMembers = useMemo(
+    () => members.filter((m) => selectedIds.has(m.id)),
+    [members, selectedIds],
   );
 
   const handleSendAll = () => {
-    const withPhone = selectedMembers.filter(m => m.phone);
+    const withPhone = selectedMembers.filter((m) => m.phone);
     if (withPhone.length === 0) {
-      toast({ variant: 'destructive', title: 'لا يوجد أرقام هاتف', description: 'لا يوجد أرقام واتساب للمنخرطين المحددين.' });
+      toast({
+        variant: 'destructive',
+        title: 'لا يوجد أرقام هاتف',
+        description: 'لا يوجد أرقام واتساب للمنخرطين المحددين.',
+      });
       return;
     }
     let sent = 0;
@@ -88,9 +87,13 @@ export default function InvitationsPage() {
   };
 
   const handleSendOne = (memberId: string) => {
-    const member = members.find(m => m.id === memberId);
+    const member = members.find((m) => m.id === memberId);
     if (!member?.phone) {
-      toast({ variant: 'destructive', title: 'لا يوجد هاتف', description: 'هذا المنخرط ليس لديه رقم هاتف.' });
+      toast({
+        variant: 'destructive',
+        title: 'لا يوجد هاتف',
+        description: 'هذا المنخرط ليس لديه رقم هاتف.',
+      });
       return;
     }
     const msg = messageTemplate.replace('{اسم_الفلاح}', member.fullName);
@@ -123,15 +126,16 @@ export default function InvitationsPage() {
                       : 'اختر منخرطاً أو أكثر لإرسال الرسالة إليهم'}
                   </CardDescription>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={toggleAll}
-                >
-                  {allSelectedOnPage
-                    ? <><Square className="h-4 w-4" /> إلغاء التحديد</>
-                    : <><CheckSquare className="h-4 w-4" /> تحديد الكل</>}
+                <Button variant="outline" size="sm" className="gap-2" onClick={toggleAll}>
+                  {allSelectedOnPage ? (
+                    <>
+                      <Square className="h-4 w-4" /> إلغاء التحديد
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare className="h-4 w-4" /> تحديد الكل
+                    </>
+                  )}
                 </Button>
               </div>
             </CardHeader>
@@ -151,40 +155,47 @@ export default function InvitationsPage() {
                   <p className="text-center py-8 text-muted-foreground text-sm">جاري التحميل...</p>
                 ) : filteredMembers.length === 0 ? (
                   <p className="text-center py-8 text-muted-foreground text-sm">لا يوجد منخرطون</p>
-                ) : filteredMembers.map(member => (
-                  <div
-                    key={member.id}
-                    className={`flex items-center gap-3 rounded-md px-3 py-2.5 cursor-pointer transition-colors ${
-                      selectedIds.has(member.id) ? 'bg-primary/10' : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => toggleOne(member.id)}
-                  >
-                    <Checkbox
-                      checked={selectedIds.has(member.id)}
-                      onCheckedChange={() => toggleOne(member.id)}
-                      onClick={e => e.stopPropagation()}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{member.fullName}</p>
-                      {member.phone ? (
-                        <p className="text-xs text-muted-foreground font-mono" dir="ltr">{member.phone}</p>
-                      ) : (
-                        <p className="text-xs text-destructive/60">لا يوجد رقم هاتف</p>
+                ) : (
+                  filteredMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className={`flex items-center gap-3 rounded-md px-3 py-2.5 cursor-pointer transition-colors ${
+                        selectedIds.has(member.id) ? 'bg-primary/10' : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => toggleOne(member.id)}
+                    >
+                      <Checkbox
+                        checked={selectedIds.has(member.id)}
+                        onCheckedChange={() => toggleOne(member.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{member.fullName}</p>
+                        {member.phone ? (
+                          <p className="text-xs text-muted-foreground font-mono" dir="ltr">
+                            {member.phone}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-destructive/60">لا يوجد رقم هاتف</p>
+                        )}
+                      </div>
+                      {member.phone && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                          title="إرسال إليه وحده"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendOne(member.id);
+                          }}
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </Button>
                       )}
                     </div>
-                    {member.phone && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 shrink-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                        title="إرسال إليه وحده"
-                        onClick={(e) => { e.stopPropagation(); handleSendOne(member.id); }}
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               {filteredMembers.length > 0 && (
@@ -201,7 +212,9 @@ export default function InvitationsPage() {
           <Card>
             <CardHeader>
               <CardTitle>الرسالة</CardTitle>
-              <CardDescription>يمكنك استخدام {'{اسم_الفلاح}'} وسيُستبدل باسم كل منخرط</CardDescription>
+              <CardDescription>
+                يمكنك استخدام {'{اسم_الفلاح}'} وسيُستبدل باسم كل منخرط
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -219,7 +232,7 @@ export default function InvitationsPage() {
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">المحددون:</p>
                   <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                    {selectedMembers.map(m => (
+                    {selectedMembers.map((m) => (
                       <Badge
                         key={m.id}
                         variant="secondary"
@@ -241,7 +254,10 @@ export default function InvitationsPage() {
                 <MessageCircle className="h-4 w-4" />
                 إرسال عبر واتساب
                 {selectedIds.size > 0 && (
-                  <Badge variant="secondary" className="mr-1 text-xs bg-white/20 text-white border-0">
+                  <Badge
+                    variant="secondary"
+                    className="mr-1 text-xs bg-white/20 text-white border-0"
+                  >
                     {selectedIds.size}
                   </Badge>
                 )}

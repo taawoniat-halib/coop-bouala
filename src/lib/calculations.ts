@@ -54,10 +54,7 @@ export function computeMemberMonthlyStatements(
     const memberReceipts = receipts.filter(
       (r) => r.memberId === member.id && monthKey(r.date) === month,
     );
-    const totalLiters = memberReceipts.reduce(
-      (sum, r) => sum + r.quantityLiters,
-      0,
-    );
+    const totalLiters = memberReceipts.reduce((sum, r) => sum + r.quantityLiters, 0);
     // Each receipt may have its own pricePerLiter; fall back to monthly price
     const grossAmount = memberReceipts.reduce((sum, r) => {
       return sum + r.quantityLiters * (r.pricePerLiter ?? monthPrice);

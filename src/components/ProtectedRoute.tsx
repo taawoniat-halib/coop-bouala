@@ -8,13 +8,7 @@ import type { Role } from '@/lib/types';
  * roles. Shows nothing while auth state is loading, redirects to /sign-in
  * when unauthenticated, and to / when the role doesn't match.
  */
-export function ProtectedRoute({
-  children,
-  roles,
-}: {
-  children: ReactNode;
-  roles?: Role[];
-}) {
+export function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: Role[] }) {
   const { appUser, loading } = useAuth();
 
   if (loading) return null;

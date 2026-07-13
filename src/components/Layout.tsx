@@ -2,9 +2,17 @@ import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/hooks/useSettings';
 import {
-  LayoutDashboard, Users, Droplets, Calculator,
-  FileText, Settings as SettingsIcon, LogOut, Menu, Truck,
-  ChevronRight, MessageCircle,
+  LayoutDashboard,
+  Users,
+  Droplets,
+  Calculator,
+  FileText,
+  Settings as SettingsIcon,
+  LogOut,
+  Menu,
+  Truck,
+  ChevronRight,
+  MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
@@ -14,23 +22,28 @@ import type { Role } from '@/lib/types';
 import defaultLogo from '@/assets/logo.png';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 
-interface NavItem { href: string; label: string; icon: React.ElementType; roles: Role[]; }
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  roles: Role[];
+}
 
 const navItems: NavItem[] = [
-  { href: '/',             label: 'لوحة القيادة', icon: LayoutDashboard, roles: ['admin'] },
-  { href: '/members',      label: 'الفلاحون',      icon: Users,          roles: ['admin', 'collector'] },
-  { href: '/milk',         label: 'الحليب',         icon: Droplets,       roles: ['admin', 'collector', 'accountant'] },
-  { href: '/transporters', label: 'الناقلون',       icon: Truck,          roles: ['admin'] },
-  { href: '/budget',       label: 'الميزانية',      icon: Calculator,     roles: ['admin', 'accountant'] },
-  { href: '/reports',      label: 'التقارير',       icon: FileText,       roles: ['admin', 'accountant'] },
-  { href: '/invitations',  label: 'الدعوات',        icon: MessageCircle,  roles: ['admin'] },
-  { href: '/settings',     label: 'الإعدادات',      icon: SettingsIcon,   roles: ['admin'] },
+  { href: '/', label: 'لوحة القيادة', icon: LayoutDashboard, roles: ['admin'] },
+  { href: '/members', label: 'الفلاحون', icon: Users, roles: ['admin', 'collector'] },
+  { href: '/milk', label: 'الحليب', icon: Droplets, roles: ['admin', 'collector', 'accountant'] },
+  { href: '/transporters', label: 'الناقلون', icon: Truck, roles: ['admin'] },
+  { href: '/budget', label: 'الميزانية', icon: Calculator, roles: ['admin', 'accountant'] },
+  { href: '/reports', label: 'التقارير', icon: FileText, roles: ['admin', 'accountant'] },
+  { href: '/invitations', label: 'الدعوات', icon: MessageCircle, roles: ['admin'] },
+  { href: '/settings', label: 'الإعدادات', icon: SettingsIcon, roles: ['admin'] },
 ];
 
 function roleLabel(role?: Role): string {
-  if (role === 'admin') return 'Administrateur';
-  if (role === 'accountant') return 'Comptable';
-  return 'Collecteur';
+  if (role === 'admin') return 'مدير';
+  if (role === 'accountant') return 'محاسب';
+  return 'جامع الحليب';
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -40,7 +53,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const filteredNavItems = navItems.filter((item) =>
-    appUser ? item.roles.includes(appUser.role) : false
+    appUser ? item.roles.includes(appUser.role) : false,
   );
 
   // Show back button on all pages except home
@@ -57,7 +70,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             href={item.href}
             className={cn(
               'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+              isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground',
             )}
             onClick={() => setIsMobileMenuOpen(false)}
           >
@@ -82,18 +95,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* ── Desktop sidebar ── */}
       <aside className="hidden w-64 flex-col border-l border-border bg-card md:flex">
         <div className="flex h-16 items-center border-b border-border px-6">
-          <img src={settings?.logoUrl || defaultLogo} alt={settings?.coopName || 'شعار التعاونية'} className="h-8 w-8 object-contain ml-3 rounded-full" />
-          <h1 className="text-lg font-bold text-foreground truncate">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
+          <img
+            src={settings?.logoUrl || defaultLogo}
+            alt={settings?.coopName || 'شعار التعاونية'}
+            className="h-8 w-8 object-contain ml-3 rounded-full"
+          />
+          <h1 className="text-lg font-bold text-foreground truncate">
+            {settings?.coopName || 'تعاونية كوب بوعلا'}
+          </h1>
         </div>
         <OfflineIndicator />
-        <div className="flex-1 overflow-y-auto"><NavLinks /></div>
+        <div className="flex-1 overflow-y-auto">
+          <NavLinks />
+        </div>
         <div className="border-t border-border p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Users className="h-5 w-5" />
             </div>
             <div className="flex flex-col overflow-hidden">
-              <span className="truncate text-sm font-medium">{appUser?.displayName || appUser?.email}</span>
+              <span className="truncate text-sm font-medium">
+                {appUser?.displayName || appUser?.email}
+              </span>
               <span className="text-xs text-muted-foreground">{roleLabel(appUser?.role)}</span>
             </div>
           </div>
@@ -137,12 +160,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {/* Logo + name — second child → appears on the LEFT in RTL flex */}
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end">
-              <h1 className="text-base font-bold truncate leading-tight">{settings?.coopName || 'تعاونية كوب بوعلا'}</h1>
+              <h1 className="text-base font-bold truncate leading-tight">
+                {settings?.coopName || 'تعاونية كوب بوعلا'}
+              </h1>
               {appUser?.displayName && (
-                <span className="text-xs text-muted-foreground truncate">{appUser.displayName} · {roleLabel(appUser?.role)}</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {appUser.displayName} · {roleLabel(appUser?.role)}
+                </span>
               )}
             </div>
-            <img src={settings?.logoUrl || defaultLogo} alt={settings?.coopName || 'شعار التعاونية'} className="h-8 w-8 object-contain rounded-full" />
+            <img
+              src={settings?.logoUrl || defaultLogo}
+              alt={settings?.coopName || 'شعار التعاونية'}
+              className="h-8 w-8 object-contain rounded-full"
+            />
           </div>
         </header>
 

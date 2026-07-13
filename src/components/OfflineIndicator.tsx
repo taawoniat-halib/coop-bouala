@@ -37,7 +37,10 @@ export function OfflineIndicator({ compact = false }: { compact?: boolean }) {
     >
       <WifiOff className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
       {!compact && (
-        <span>لا يوجد اتصال بالإنترنت — يمكنك متابعة العمل، وسيتم حفظ كل شيء ومزامنته تلقائياً عند عودة الاتصال.</span>
+        <span>
+          لا يوجد اتصال بالإنترنت — يمكنك متابعة العمل، وسيتم حفظ كل شيء ومزامنته تلقائياً عند عودة
+          الاتصال.
+        </span>
       )}
     </div>
   );

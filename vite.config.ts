@@ -28,7 +28,12 @@ export default defineConfig({
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icon-maskable-512.png', sizes: '640x640', type: 'image/png', purpose: 'maskable' },
+          {
+            src: 'icon-maskable-512.png',
+            sizes: '640x640',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
         ],
       },
       workbox: {
@@ -38,6 +43,10 @@ export default defineConfig({
         // we never want to serve stale data from the service worker.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
+        // The vendor chunk (React + Firebase + Recharts + Radix) sits just
+        // over the 2 MiB default; raise the precache limit so the whole app
+        // shell is still available offline instead of silently dropping it.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
@@ -60,6 +69,15 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          charts: ['recharts'],
+          vendor: ['react', 'react-dom', 'wouter', '@tanstack/react-query'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,

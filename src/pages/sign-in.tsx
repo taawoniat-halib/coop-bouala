@@ -55,9 +55,12 @@ export default function SignIn() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] w-full items-center justify-center bg-background p-4 font-sans" dir="rtl">
+    <div
+      className="flex min-h-[100dvh] w-full items-center justify-center bg-background p-4 font-sans"
+      dir="rtl"
+    >
       <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background"></div>
-      
+
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-8 shadow-xl">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary/10">

@@ -3,14 +3,34 @@ import { useTransporters, useMembers } from '@/hooks/useData';
 import { useSettings } from '@/hooks/useSettings';
 import { useState, useMemo } from 'react';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit2, Trash2, CheckCircle2, XCircle, Truck, AlertTriangle } from 'lucide-react';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+  Truck,
+  AlertTriangle,
+} from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -40,14 +60,15 @@ export default function Transporters() {
     if (!search) return transporters;
     const lower = search.toLowerCase();
     return transporters.filter(
-      (t) => t.fullName.toLowerCase().includes(lower) ||
-             (t.vehicle && t.vehicle.toLowerCase().includes(lower))
+      (t) =>
+        t.fullName.toLowerCase().includes(lower) ||
+        (t.vehicle && t.vehicle.toLowerCase().includes(lower)),
     );
   }, [transporters, search]);
 
   /** Check how many active members are linked to a given transporter */
   const linkedMembersCount = (transporterId: string) =>
-    members.filter(m => m.transporterId === transporterId).length;
+    members.filter((m) => m.transporterId === transporterId).length;
 
   const handleOpenDialog = (transporter?: Transporter) => {
     if (transporter) {
@@ -117,7 +138,12 @@ export default function Transporters() {
   return (
     <Layout>
       {/* ── Confirm delete dialog ── */}
-      <Dialog open={!!deleteCandidate} onOpenChange={(open) => { if (!open) setDeleteCandidate(null); }}>
+      <Dialog
+        open={!!deleteCandidate}
+        onOpenChange={(open) => {
+          if (!open) setDeleteCandidate(null);
+        }}
+      >
         <DialogContent dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
@@ -125,13 +151,17 @@ export default function Transporters() {
               تأكيد الحذف
             </DialogTitle>
             <DialogDescription>
-              هل أنت متأكد من حذف الناقل <strong>{deleteCandidate?.fullName}</strong>؟
-              لا يمكن التراجع عن هذا الإجراء.
+              هل أنت متأكد من حذف الناقل <strong>{deleteCandidate?.fullName}</strong>؟ لا يمكن
+              التراجع عن هذا الإجراء.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDeleteCandidate(null)}>إلغاء</Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>حذف</Button>
+            <Button variant="outline" onClick={() => setDeleteCandidate(null)}>
+              إلغاء
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              حذف
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -141,7 +171,9 @@ export default function Transporters() {
           <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             الناقلون <Truck className="h-6 w-6 text-muted-foreground" />
           </h2>
-          <p className="text-muted-foreground mt-1">إدارة ناقلي الحليب وتكلفة النقل ({transporters.length})</p>
+          <p className="text-muted-foreground mt-1">
+            إدارة ناقلي الحليب وتكلفة النقل ({transporters.length})
+          </p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -208,7 +240,9 @@ export default function Transporters() {
                 <Label htmlFor="active">حالة الناقل (نشط)</Label>
               </div>
               <DialogFooter className="pt-4">
-                <Button type="submit" className="w-full">حفظ</Button>
+                <Button type="submit" className="w-full">
+                  حفظ
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -244,7 +278,9 @@ export default function Transporters() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">جاري التحميل...</TableCell>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    جاري التحميل...
+                  </TableCell>
                 </TableRow>
               ) : filteredTransporters.length === 0 ? (
                 <TableRow>
@@ -259,13 +295,18 @@ export default function Transporters() {
                     <TableRow key={transporter.id}>
                       <TableCell className="font-medium">{transporter.fullName}</TableCell>
                       <TableCell>{transporter.vehicle || '-'}</TableCell>
-                      <TableCell className="font-mono text-sm" dir="ltr">{transporter.phone || '-'}</TableCell>
+                      <TableCell className="font-mono text-sm" dir="ltr">
+                        {transporter.phone || '-'}
+                      </TableCell>
                       <TableCell className="font-mono">
                         {transporter.costPerLiter.toFixed(2)} {currency}
                       </TableCell>
                       <TableCell>
                         {linked > 0 ? (
-                          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-500/10 text-blue-600 border-blue-500/20"
+                          >
                             {linked} فلاح
                           </Badge>
                         ) : (
@@ -274,11 +315,17 @@ export default function Transporters() {
                       </TableCell>
                       <TableCell>
                         {transporter.active ? (
-                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1 pr-1">
+                          <Badge
+                            variant="outline"
+                            className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1 pr-1"
+                          >
                             <CheckCircle2 className="h-3 w-3" /> نشط
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 gap-1 pr-1">
+                          <Badge
+                            variant="outline"
+                            className="bg-destructive/10 text-destructive border-destructive/20 gap-1 pr-1"
+                          >
                             <XCircle className="h-3 w-3" /> غير نشط
                           </Badge>
                         )}

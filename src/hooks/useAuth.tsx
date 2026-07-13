@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -48,9 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // First-time sign-in: bootstrap the designated admin email, everyone
         // else starts as a collector until an admin changes their role.
         const role: Role =
-          user.email?.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL
-            ? 'admin'
-            : 'collector';
+          user.email?.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL ? 'admin' : 'collector';
         const newUser: AppUser = {
           uid: user.uid,
           email: user.email ?? '',
@@ -76,9 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider
-      value={{ firebaseUser, appUser, loading, signIn, signOut }}
-    >
+    <AuthContext.Provider value={{ firebaseUser, appUser, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

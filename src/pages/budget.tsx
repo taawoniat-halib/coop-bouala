@@ -3,8 +3,13 @@ import { useIncomes, useExpenses } from '@/hooks/useData';
 import { useSettings } from '@/hooks/useSettings';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,12 +31,12 @@ export default function Budget() {
   const { data: expenses, add: addExpense, remove: removeExpense } = useExpenses();
   const { settings } = useSettings();
   const { toast } = useToast();
-  
+
   const [activeTab, setActiveTab] = useState('transactions');
   const [monthFilter, setMonthFilter] = useState(monthKey(format(new Date(), 'yyyy-MM-dd')));
   const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
-  
+
   const currency = settings?.currency === 'MAD' ? 'درهم' : settings?.currency;
 
   const [form, setForm] = useState({
@@ -39,11 +44,17 @@ export default function Budget() {
     label: '',
     amount: '',
     category: '',
-    notes: ''
+    notes: '',
   });
 
-  const filteredIncomes = useMemo(() => incomes.filter(i => monthKey(i.date) === monthFilter), [incomes, monthFilter]);
-  const filteredExpenses = useMemo(() => expenses.filter(e => monthKey(e.date) === monthFilter), [expenses, monthFilter]);
+  const filteredIncomes = useMemo(
+    () => incomes.filter((i) => monthKey(i.date) === monthFilter),
+    [incomes, monthFilter],
+  );
+  const filteredExpenses = useMemo(
+    () => expenses.filter((e) => monthKey(e.date) === monthFilter),
+    [expenses, monthFilter],
+  );
 
   const totalIncome = filteredIncomes.reduce((s, i) => s + i.amount, 0);
   const totalExpense = filteredExpenses.reduce((s, e) => s + e.amount, 0);
@@ -57,10 +68,16 @@ export default function Budget() {
         label: form.label,
         amount: Number(form.amount),
         category: form.category,
-        notes: form.notes
+        notes: form.notes,
       });
       toast({ title: 'تم', description: 'تمت إضافة المدخول بنجاح.' });
-      setForm({ date: format(new Date(), 'yyyy-MM-dd'), label: '', amount: '', category: '', notes: '' });
+      setForm({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        label: '',
+        amount: '',
+        category: '',
+        notes: '',
+      });
       setIsIncomeDialogOpen(false);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'خطأ', description: err.message });
@@ -75,10 +92,16 @@ export default function Budget() {
         label: form.label,
         amount: Number(form.amount),
         category: form.category,
-        notes: form.notes
+        notes: form.notes,
       });
       toast({ title: 'تم', description: 'تمت إضافة المصروف بنجاح.' });
-      setForm({ date: format(new Date(), 'yyyy-MM-dd'), label: '', amount: '', category: '', notes: '' });
+      setForm({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        label: '',
+        amount: '',
+        category: '',
+        notes: '',
+      });
       setIsExpenseDialogOpen(false);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'خطأ', description: err.message });
@@ -86,8 +109,8 @@ export default function Budget() {
   };
 
   const allTransactions = [
-    ...filteredIncomes.map(i => ({ ...i, type: 'income' as const })),
-    ...filteredExpenses.map(e => ({ ...e, type: 'expense' as const }))
+    ...filteredIncomes.map((i) => ({ ...i, type: 'income' as const })),
+    ...filteredExpenses.map((e) => ({ ...e, type: 'expense' as const })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
@@ -101,9 +124,9 @@ export default function Budget() {
         </div>
         <div className="flex items-center gap-3 bg-card border border-border p-1 rounded-md">
           <Calendar className="h-4 w-4 text-muted-foreground ml-2" />
-          <Input 
-            type="month" 
-            value={monthFilter} 
+          <Input
+            type="month"
+            value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
             className="border-0 bg-transparent h-8 w-auto focus-visible:ring-0"
             dir="ltr"
@@ -128,10 +151,18 @@ export default function Budget() {
             {totalExpense.toLocaleString()} {currency}
           </div>
         </div>
-        <div className={`rounded-xl border p-6 shadow-sm flex flex-col justify-center ${balance >= 0 ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-destructive/30 bg-destructive/5'}`}>
-          <div className="text-sm font-medium text-muted-foreground mb-2">الرصيد الصافي (للشهر)</div>
-          <div className={`text-3xl font-bold font-mono ${balance >= 0 ? 'text-emerald-600' : 'text-destructive'}`} dir="ltr">
-            {balance > 0 ? '+' : ''}{balance.toLocaleString()} {currency}
+        <div
+          className={`rounded-xl border p-6 shadow-sm flex flex-col justify-center ${balance >= 0 ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-destructive/30 bg-destructive/5'}`}
+        >
+          <div className="text-sm font-medium text-muted-foreground mb-2">
+            الرصيد الصافي (للشهر)
+          </div>
+          <div
+            className={`text-3xl font-bold font-mono ${balance >= 0 ? 'text-emerald-600' : 'text-destructive'}`}
+            dir="ltr"
+          >
+            {balance > 0 ? '+' : ''}
+            {balance.toLocaleString()} {currency}
           </div>
         </div>
       </div>
@@ -142,7 +173,7 @@ export default function Budget() {
             <TabsTrigger value="transactions">سجل العمليات</TabsTrigger>
           </TabsList>
         </Tabs>
-        
+
         <div className="flex gap-2">
           <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
             <DialogTrigger asChild>
@@ -151,21 +182,43 @@ export default function Budget() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>إضافة مدخول</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>إضافة مدخول</DialogTitle>
+              </DialogHeader>
               <form onSubmit={handleIncomeSubmit} className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>التاريخ</Label>
-                  <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
+                  <Input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>البيان / الوصف</Label>
-                  <Input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} required />
+                  <Input
+                    value={form.label}
+                    onChange={(e) => setForm({ ...form, label: e.target.value })}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>المبلغ ({currency})</Label>
-                  <Input type="number" step="0.01" min="0" dir="ltr" className="text-right" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    dir="ltr"
+                    className="text-right"
+                    value={form.amount}
+                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    required
+                  />
                 </div>
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">حفظ المدخول</Button>
+                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  حفظ المدخول
+                </Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -177,21 +230,43 @@ export default function Budget() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>إضافة مصروف</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>إضافة مصروف</DialogTitle>
+              </DialogHeader>
               <form onSubmit={handleExpenseSubmit} className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>التاريخ</Label>
-                  <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
+                  <Input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>البيان / الوصف</Label>
-                  <Input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} required />
+                  <Input
+                    value={form.label}
+                    onChange={(e) => setForm({ ...form, label: e.target.value })}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>المبلغ ({currency})</Label>
-                  <Input type="number" step="0.01" min="0" dir="ltr" className="text-right" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    dir="ltr"
+                    className="text-right"
+                    value={form.amount}
+                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    required
+                  />
                 </div>
-                <Button type="submit" variant="destructive" className="w-full">حفظ المصروف</Button>
+                <Button type="submit" variant="destructive" className="w-full">
+                  حفظ المصروف
+                </Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -211,11 +286,17 @@ export default function Budget() {
           </TableHeader>
           <TableBody>
             {allTransactions.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">لا توجد عمليات في هذا الشهر</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  لا توجد عمليات في هذا الشهر
+                </TableCell>
+              </TableRow>
             ) : (
-              allTransactions.map(tx => (
+              allTransactions.map((tx) => (
                 <TableRow key={tx.id} className="group">
-                  <TableCell className="font-mono text-sm">{format(new Date(tx.date), 'dd/MM/yyyy')}</TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {format(new Date(tx.date), 'dd/MM/yyyy')}
+                  </TableCell>
                   <TableCell>
                     {tx.type === 'income' ? (
                       <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded text-xs">
@@ -228,11 +309,21 @@ export default function Budget() {
                     )}
                   </TableCell>
                   <TableCell className="font-medium">{tx.label}</TableCell>
-                  <TableCell className={`font-mono font-bold ${tx.type === 'income' ? 'text-emerald-600' : 'text-destructive'}`}>
-                    {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString()} {currency}
+                  <TableCell
+                    className={`font-mono font-bold ${tx.type === 'income' ? 'text-emerald-600' : 'text-destructive'}`}
+                  >
+                    {tx.type === 'income' ? '+' : '-'}
+                    {tx.amount.toLocaleString()} {currency}
                   </TableCell>
                   <TableCell className="text-left">
-                    <Button variant="ghost" size="icon" onClick={() => tx.type === 'income' ? removeIncome(tx.id) : removeExpense(tx.id)} className="h-8 w-8 hover:bg-destructive/10 text-destructive">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        tx.type === 'income' ? removeIncome(tx.id) : removeExpense(tx.id)
+                      }
+                      className="h-8 w-8 hover:bg-destructive/10 text-destructive"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>

@@ -22,28 +22,44 @@ function Router() {
     <Switch>
       <Route path="/sign-in" component={SignIn} />
       <Route path="/">
-        <ProtectedRoute roles={['admin']}><Dashboard /></ProtectedRoute>
+        <ProtectedRoute roles={['admin']}>
+          <Dashboard />
+        </ProtectedRoute>
       </Route>
       <Route path="/settings">
-        <ProtectedRoute roles={['admin']}><SettingsPage /></ProtectedRoute>
+        <ProtectedRoute roles={['admin']}>
+          <SettingsPage />
+        </ProtectedRoute>
       </Route>
       <Route path="/members">
-        <ProtectedRoute roles={['admin', 'collector']}><Members /></ProtectedRoute>
+        <ProtectedRoute roles={['admin', 'collector']}>
+          <Members />
+        </ProtectedRoute>
       </Route>
       <Route path="/milk">
-        <ProtectedRoute roles={['admin', 'collector', 'accountant']}><Milk /></ProtectedRoute>
+        <ProtectedRoute roles={['admin', 'collector', 'accountant']}>
+          <Milk />
+        </ProtectedRoute>
       </Route>
       <Route path="/budget">
-        <ProtectedRoute roles={['admin', 'accountant']}><Budget /></ProtectedRoute>
+        <ProtectedRoute roles={['admin', 'accountant']}>
+          <Budget />
+        </ProtectedRoute>
       </Route>
       <Route path="/reports">
-        <ProtectedRoute roles={['admin', 'accountant']}><Reports /></ProtectedRoute>
+        <ProtectedRoute roles={['admin', 'accountant']}>
+          <Reports />
+        </ProtectedRoute>
       </Route>
       <Route path="/transporters">
-        <ProtectedRoute roles={['admin']}><Transporters /></ProtectedRoute>
+        <ProtectedRoute roles={['admin']}>
+          <Transporters />
+        </ProtectedRoute>
       </Route>
       <Route path="/invitations">
-        <ProtectedRoute roles={['admin']}><InvitationsPage /></ProtectedRoute>
+        <ProtectedRoute roles={['admin']}>
+          <InvitationsPage />
+        </ProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>

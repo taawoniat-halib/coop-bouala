@@ -5,19 +5,44 @@ import { adminCreateUser } from '@/lib/adminCreateUser';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useState, useRef, useEffect } from 'react';
-import {
-  Card, CardContent, CardHeader, CardTitle, CardDescription
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, Users, Shield, Plus, Upload, Loader2, Save, Trash2, DollarSign } from 'lucide-react';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Settings,
+  Users,
+  Shield,
+  Plus,
+  Upload,
+  Loader2,
+  Save,
+  Trash2,
+  DollarSign,
+} from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import type { Role } from '@/lib/types';
 
@@ -81,7 +106,9 @@ export default function SettingsPage() {
     setIsUploading(true);
     try {
       if (settings?.logoUrl) {
-        try { await deleteObject(ref(storage, settings.logoUrl)); } catch { }
+        try {
+          await deleteObject(ref(storage, settings.logoUrl));
+        } catch {}
       }
       const storageRef = ref(storage, `logos/coop-logo-${Date.now()}`);
       await uploadBytes(storageRef, file);
@@ -130,13 +157,14 @@ export default function SettingsPage() {
     }
   };
 
-  if (settingsLoading) return (
-    <Layout>
-      <div className="flex items-center justify-center p-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    </Layout>
-  );
+  if (settingsLoading)
+    return (
+      <Layout>
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
 
   const currencyLabel = currency === 'MAD' ? 'درهم' : currency;
 
@@ -161,7 +189,11 @@ export default function SettingsPage() {
               <div className="flex items-center gap-6">
                 <div className="flex-shrink-0">
                   {settings?.logoUrl ? (
-                    <img src={settings.logoUrl} alt="Logo" className="h-24 w-24 object-contain rounded-lg border bg-muted/20" />
+                    <img
+                      src={settings.logoUrl}
+                      alt="Logo"
+                      className="h-24 w-24 object-contain rounded-lg border bg-muted/20"
+                    />
                   ) : (
                     <div className="h-24 w-24 rounded-lg border bg-muted/20 flex items-center justify-center">
                       <Shield className="h-8 w-8 text-muted-foreground" />
@@ -182,17 +214,27 @@ export default function SettingsPage() {
                     disabled={isUploading}
                     className="gap-2"
                   >
-                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
                     تغيير الشعار
                   </Button>
-                  <p className="text-xs text-muted-foreground mt-2">يفضل استخدام صورة مربعة (PNG أو JPG)</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    يفضل استخدام صورة مربعة (PNG أو JPG)
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="coopName">اسم التعاونية</Label>
-                  <Input id="coopName" value={coopName} onChange={(e) => setCoopName(e.target.value)} />
+                  <Input
+                    id="coopName"
+                    value={coopName}
+                    onChange={(e) => setCoopName(e.target.value)}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -220,7 +262,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <Button onClick={handleSaveSettings} disabled={isSaving} className="w-full gap-2">
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   حفظ التغييرات
                 </Button>
               </div>
@@ -268,11 +314,19 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="rounded-lg bg-muted/30 border border-border p-3 text-sm text-muted-foreground">
-                <p>• <strong>ثمن الشراء</strong>: الثمن الذي تدفعه التعاونية للفلاح مقابل كل لتر حليب</p>
-                <p>• <strong>ثمن البيع</strong>: الثمن الذي تبيع به التعاونية الحليب للشركة</p>
+                <p>
+                  • <strong>ثمن الشراء</strong>: الثمن الذي تدفعه التعاونية للفلاح مقابل كل لتر حليب
+                </p>
+                <p>
+                  • <strong>ثمن البيع</strong>: الثمن الذي تبيع به التعاونية الحليب للشركة
+                </p>
               </div>
               <Button onClick={handleSaveSettings} disabled={isSaving} className="w-full gap-2">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
                 حفظ الأسعار
               </Button>
             </CardContent>
@@ -283,7 +337,9 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
-              <CardTitle className="flex items-center gap-2">المستخدمين <Users className="h-5 w-5" /></CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                المستخدمين <Users className="h-5 w-5" />
+              </CardTitle>
               <CardDescription>إدارة حسابات وصلاحيات الولوج</CardDescription>
             </div>
             <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
@@ -293,24 +349,50 @@ export default function SettingsPage() {
                 </Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>إنشاء حساب مستخدم</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>إنشاء حساب مستخدم</DialogTitle>
+                </DialogHeader>
                 <form onSubmit={handleCreateUser} className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>الاسم الكامل</Label>
-                    <Input required value={userForm.displayName} onChange={e => setUserForm({ ...userForm, displayName: e.target.value })} />
+                    <Input
+                      required
+                      value={userForm.displayName}
+                      onChange={(e) => setUserForm({ ...userForm, displayName: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>البريد الإلكتروني</Label>
-                    <Input required type="email" dir="ltr" className="text-right" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} />
+                    <Input
+                      required
+                      type="email"
+                      dir="ltr"
+                      className="text-right"
+                      value={userForm.email}
+                      onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>كلمة المرور</Label>
-                    <Input required type="password" dir="ltr" className="text-right" minLength={6} value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} />
+                    <Input
+                      required
+                      type="password"
+                      dir="ltr"
+                      className="text-right"
+                      minLength={6}
+                      value={userForm.password}
+                      onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>الصلاحية</Label>
-                    <Select value={userForm.role} onValueChange={(v: Role) => setUserForm({ ...userForm, role: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Select
+                      value={userForm.role}
+                      onValueChange={(v: Role) => setUserForm({ ...userForm, role: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="collector">جامع حليب (مكلف بالاستلام)</SelectItem>
                         <SelectItem value="accountant">محاسب (مكلف بالميزانية)</SelectItem>
@@ -338,28 +420,58 @@ export default function SettingsPage() {
                 </TableHeader>
                 <TableBody>
                   {usersLoading ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-4 text-muted-foreground">جاري التحميل...</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                        جاري التحميل...
+                      </TableCell>
+                    </TableRow>
                   ) : users?.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-4 text-muted-foreground">لا يوجد مستخدمين</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                        لا يوجد مستخدمين
+                      </TableCell>
+                    </TableRow>
                   ) : (
-                    users?.map(user => (
+                    users?.map((user) => (
                       <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.displayName || 'بدون اسم'}</TableCell>
-                        <TableCell className="text-xs font-mono" dir="ltr">{user.email}</TableCell>
+                        <TableCell className="font-medium">
+                          {user.displayName || 'بدون اسم'}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono" dir="ltr">
+                          {user.email}
+                        </TableCell>
                         <TableCell>
-                          <Select value={user.role} onValueChange={(val: Role) => handleRoleChange(user.id, val)}>
+                          <Select
+                            value={user.role}
+                            onValueChange={(val: Role) => handleRoleChange(user.id, val)}
+                          >
                             <SelectTrigger className="h-8 text-xs border-0 bg-muted/20">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">
-                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 mr-2">مدير</Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="bg-primary/10 text-primary border-primary/20 mr-2"
+                                >
+                                  مدير
+                                </Badge>
                               </SelectItem>
                               <SelectItem value="accountant">
-                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 mr-2">محاسب</Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="bg-amber-500/10 text-amber-600 border-amber-500/20 mr-2"
+                                >
+                                  محاسب
+                                </Badge>
                               </SelectItem>
                               <SelectItem value="collector">
-                                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20 mr-2">جامع حليب</Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="bg-blue-500/10 text-blue-600 border-blue-500/20 mr-2"
+                                >
+                                  جامع حليب
+                                </Badge>
                               </SelectItem>
                             </SelectContent>
                           </Select>

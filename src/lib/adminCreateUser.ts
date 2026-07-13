@@ -1,9 +1,5 @@
 import { initializeApp, deleteApp } from 'firebase/app';
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, firebaseConfig as config } from '@/lib/firebase';
 import type { AppUser, Role } from '@/lib/types';
@@ -27,11 +23,7 @@ export async function adminCreateUser(
   const secondaryApp = initializeApp(config, `admin-create-${Date.now()}`);
   try {
     const secondaryAuth = getAuth(secondaryApp);
-    const cred = await createUserWithEmailAndPassword(
-      secondaryAuth,
-      email,
-      password,
-    );
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
     await updateProfile(cred.user, { displayName });
     await setDoc(doc(db, 'users', cred.user.uid), {
       uid: cred.user.uid,
