@@ -16,16 +16,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
         run: |
-          for i in 1 2 3; do
-            npm ci && break
-            echo "npm ci failed (attempt $i), retrying after cleaning node_modules..."
+          set +e
+          success=0
+          for i in 1 2 3 4 5; do
+            echo "npm ci attempt $i..."
+            npm ci
+            if [ $? -eq 0 ]; then
+              success=1
+              break
+            fi
+            echo "npm ci failed (attempt $i). Cleaning npm cache and node_modules before retrying..."
+            npm cache clean --force
             rm -rf node_modules
-            sleep 5
+            sleep $((i * 5))
           done
+          set -e
+          if [ "$success" -ne 1 ]; then
+            echo "npm ci failed after multiple attempts."
+            exit 1
+          fi
 
       - name: Build
         run: npm run build
