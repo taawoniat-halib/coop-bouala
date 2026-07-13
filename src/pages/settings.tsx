@@ -1,6 +1,7 @@
 import { Layout } from '@/components/Layout';
 import { useSettings } from '@/hooks/useSettings';
-import { useUsers } from '@/hooks/useData';
+import { useUsers, useMilkDelivered, useInvoices, useMembers } from '@/hooks/useData';
+import { generateMonthOptions, monthKey, monthLabel as monthLabelAr } from '@/lib/calculations';
 import { adminCreateUser } from '@/lib/adminCreateUser';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -36,6 +37,7 @@ import {
   Save,
   Trash2,
   DollarSign,
+  Database,
 } from 'lucide-react';
 import {
   Dialog,
@@ -46,10 +48,49 @@ import {
 } from '@/components/ui/dialog';
 import type { Role } from '@/lib/types';
 
+const RECORD_MONTH_OPTIONS = generateMonthOptions(24);
+
 export default function SettingsPage() {
   const { settings, loading: settingsLoading, updateSettings } = useSettings();
   const { data: users, loading: usersLoading, update: updateUser, remove: removeUser } = useUsers();
+  const { data: deliveries, remove: removeDelivery } = useMilkDelivered();
+  const { data: invoices, remove: removeInvoice } = useInvoices();
+  const { data: members } = useMembers();
   const { toast } = useToast();
+
+  // ── Data management state ──
+  const [recordType, setRecordType] = useState<'deliveries' | 'invoices'>('deliveries');
+  const [recordMonth, setRecordMonth] = useState(monthKey(new Date().toISOString().slice(0, 10)));
+
+  const memberName = (id: string) => members.find((m) => m.id === id)?.fullName || 'غير معروف';
+
+  const filteredDeliveries = deliveries
+    .filter((d) => monthKey(d.date) === recordMonth)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const filteredInvoices = invoices
+    .filter((inv) => inv.month === recordMonth)
+    .sort((a, b) => memberName(a.memberId).localeCompare(memberName(b.memberId), 'ar'));
+
+  const handleDeleteDelivery = async (id: string, companyName: string) => {
+    if (!confirm(`هل أنت متأكد من حذف تسليم "${companyName}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    try {
+      await removeDelivery(id);
+      toast({ title: 'تم الحذف', description: 'تم حذف التسليم بنجاح.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    }
+  };
+
+  const handleDeleteInvoice = async (id: string, name: string) => {
+    if (!confirm(`هل أنت متأكد من حذف فاتورة "${name}"؟ سيتم فقدان حالة الدفع لهذا الشهر.`)) return;
+    try {
+      await removeInvoice(id);
+      toast({ title: 'تم الحذف', description: 'تم حذف الفاتورة بنجاح.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    }
+  };
 
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -483,6 +524,148 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Data Management (delete records) ── */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            إدارة السجلات <Database className="h-5 w-5" />
+          </CardTitle>
+          <CardDescription>
+            حذف تسليمات الشركات أو الفواتير الشهرية — استخدم بحذر، لا يمكن التراجع عن الحذف
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <div className="space-y-1.5 w-48">
+              <Label className="text-xs text-muted-foreground">نوع السجل</Label>
+              <Select value={recordType} onValueChange={(v: 'deliveries' | 'invoices') => setRecordType(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deliveries">تسليمات الشركات</SelectItem>
+                  <SelectItem value="invoices">الفواتير الشهرية</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 w-48">
+              <Label className="text-xs text-muted-foreground">الشهر</Label>
+              <Select value={recordMonth} onValueChange={setRecordMonth}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RECORD_MONTH_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border">
+            {recordType === 'deliveries' ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>التاريخ</TableHead>
+                    <TableHead>الشركة</TableHead>
+                    <TableHead>الكمية (لتر)</TableHead>
+                    <TableHead>الثمن/لتر</TableHead>
+                    <TableHead>الإجمالي</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredDeliveries.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        لا توجد تسليمات لهذا الشهر
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredDeliveries.map((d) => (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-mono text-xs">{d.date}</TableCell>
+                        <TableCell className="font-medium">{d.companyName}</TableCell>
+                        <TableCell className="font-mono">{d.quantityLiters}</TableCell>
+                        <TableCell className="font-mono">{d.pricePerLiter.toFixed(2)}</TableCell>
+                        <TableCell className="font-mono font-semibold">
+                          {(d.quantityLiters * d.pricePerLiter).toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteDelivery(d.id, d.companyName)}
+                            title="حذف التسليم"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>المنخرط</TableHead>
+                    <TableHead>الشهر</TableHead>
+                    <TableHead>الحالة</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredInvoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                        لا توجد فواتير لهذا الشهر
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredInvoices.map((inv) => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-medium">{memberName(inv.memberId)}</TableCell>
+                        <TableCell className="font-mono text-xs">{monthLabelAr(inv.month)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={
+                              inv.paid
+                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                            }
+                          >
+                            {inv.paid ? 'مدفوع' : 'غير مدفوع'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteInvoice(inv.id, memberName(inv.memberId))}
+                            title="حذف الفاتورة"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </Layout>
   );
 }

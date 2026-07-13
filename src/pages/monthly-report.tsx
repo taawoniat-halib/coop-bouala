@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { exportToExcel } from '@/lib/exportUtils';
+import { exportToExcel, exportToPdf } from '@/lib/exportUtils';
 import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar } from 'lucide-react';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -617,6 +617,80 @@ export default function MonthlyReport() {
     await exportToExcel(`تقرير ${monthLabelAr(monthFilter)}`, cols, rows, `تقرير-شهري-${monthFilter}`);
   }
 
+  // ── Transporter costs — standalone export ──
+  const transportCols = [
+    { header: 'الناقل', key: 'name' },
+    { header: 'المنخرطون', key: 'memberCount' },
+    { header: 'مجموع اللترات', key: 'totalLiters' },
+    { header: `التكلفة/ل (${currency})`, key: 'costPerLiter' },
+    { header: `الإجمالي (${currency})`, key: 'totalCost' },
+  ];
+  const transportRowsData = () => [
+    ...transporterRows.map((tp) => ({
+      name: tp.name,
+      memberCount: tp.memberCount,
+      totalLiters: tp.totalLiters,
+      costPerLiter: tp.costPerLiter.toFixed(2),
+      totalCost: tp.totalCost.toFixed(2),
+    })),
+    {
+      name: 'الإجمالي',
+      memberCount: '',
+      totalLiters: G.total,
+      costPerLiter: '',
+      totalCost: G.transport.toFixed(2),
+    },
+  ];
+  function handleTransportPdf() {
+    exportToPdf(
+      `تكاليف النقل لكل ناقل — ${monthLabelAr(monthFilter)}`,
+      transportCols,
+      transportRowsData(),
+      `تكاليف-النقل-${monthFilter}`,
+    );
+  }
+  async function handleTransportExcel() {
+    await exportToExcel(
+      `تكاليف النقل ${monthLabelAr(monthFilter)}`,
+      transportCols,
+      transportRowsData(),
+      `تكاليف-النقل-${monthFilter}`,
+    );
+  }
+
+  // ── Financial summary — standalone export ──
+  const financialCols = [
+    { header: 'البيان', key: 'label' },
+    { header: `المبلغ (${currency})`, key: 'value' },
+  ];
+  const financialRowsData = () => [
+    { label: 'مجموع اللترات', value: `${fmtL(G.total) || '0'} لتر` },
+    { label: `الإجمالي بالدرهم`, value: G.totalVal.toFixed(2) },
+    { label: 'خصم النقل', value: `- ${G.transport.toFixed(2)}` },
+    { label: 'الباقي الصافي للمنخرطين', value: G.net.toFixed(2) },
+    { label: 'مداخيل بيع الحليب', value: deliveryIncome.toFixed(2) },
+    { label: 'مداخيل أخرى', value: otherIncome.toFixed(2) },
+    { label: 'إجمالي المداخيل', value: totalIncome.toFixed(2) },
+    { label: 'إجمالي المصاريف', value: totalExpenses.toFixed(2) },
+    { label: 'الرصيد النهائي', value: `${finalBalance >= 0 ? '+' : ''}${finalBalance.toFixed(2)}` },
+  ];
+  function handleFinancialPdf() {
+    exportToPdf(
+      `الملخص المالي الشهري — ${monthLabelAr(monthFilter)}`,
+      financialCols,
+      financialRowsData(),
+      `ملخص-مالي-${monthFilter}`,
+    );
+  }
+  async function handleFinancialExcel() {
+    await exportToExcel(
+      `الملخص المالي ${monthLabelAr(monthFilter)}`,
+      financialCols,
+      financialRowsData(),
+      `ملخص-مالي-${monthFilter}`,
+    );
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <Layout>
@@ -829,8 +903,28 @@ export default function MonthlyReport() {
 
         {/* Transporter table */}
         <Card className="shadow-sm">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">تكاليف النقل لكل ناقل</CardTitle>
+            <div className="flex gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 gap-1"
+                onClick={handleTransportPdf}
+                disabled={transporterRows.length === 0}
+              >
+                <Printer className="h-3.5 w-3.5" /> طباعة
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 gap-1"
+                onClick={handleTransportExcel}
+                disabled={transporterRows.length === 0}
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {transporterRows.length === 0 ? (
@@ -868,8 +962,16 @@ export default function MonthlyReport() {
 
         {/* Financial summary */}
         <Card className="shadow-sm">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">الملخص المالي الشهري</CardTitle>
+            <div className="flex gap-1.5">
+              <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={handleFinancialPdf}>
+                <Printer className="h-3.5 w-3.5" /> طباعة
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={handleFinancialExcel}>
+                <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-1.5 text-sm">
