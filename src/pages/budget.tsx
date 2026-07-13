@@ -21,6 +21,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { monthKey } from '@/lib/calculations';
@@ -34,6 +44,11 @@ export default function Budget() {
   const [monthFilter, setMonthFilter] = useState(monthKey(format(new Date(), 'yyyy-MM-dd')));
   const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
+  const [deleteCandidate, setDeleteCandidate] = useState<{
+    id: string;
+    type: 'income' | 'expense';
+    label: string;
+  } | null>(null);
 
   const currency = settings?.currency === 'MAD' ? 'درهم' : settings?.currency;
 
@@ -318,7 +333,7 @@ export default function Budget() {
                       variant="ghost"
                       size="icon"
                       onClick={() =>
-                        tx.type === 'income' ? removeIncome(tx.id) : removeExpense(tx.id)
+                        setDeleteCandidate({ id: tx.id, type: tx.type, label: tx.label })
                       }
                       className="h-8 w-8 hover:bg-destructive/10 text-destructive"
                     >
@@ -331,6 +346,45 @@ export default function Budget() {
           </TableBody>
         </Table>
       </div>
+
+      {/* ── حوار تأكيد الحذف ── */}
+      <AlertDialog open={!!deleteCandidate} onOpenChange={(open) => { if (!open) setDeleteCandidate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف{' '}
+              <span className="font-semibold text-foreground">
+                "{deleteCandidate?.label}"
+              </span>
+              ؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={async () => {
+                if (!deleteCandidate) return;
+                try {
+                  if (deleteCandidate.type === 'income') {
+                    await removeIncome(deleteCandidate.id);
+                  } else {
+                    await removeExpense(deleteCandidate.id);
+                  }
+                  toast({ title: 'تم الحذف', description: 'تم حذف العملية بنجاح.' });
+                } catch (err: any) {
+                  toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+                } finally {
+                  setDeleteCandidate(null);
+                }
+              }}
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

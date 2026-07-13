@@ -26,6 +26,8 @@ export interface MemberMonthlyStatement {
   pricePerLiter: number;
   grossAmount: number;
   transportCost: number;
+  /** الديون المخصومة من صافي المنخرط هذا الشهر */
+  debt: number;
   netAmount: number;
   /** قيمة شراء الحليب (liters × milkPurchasePrice من الإعدادات) */
   purchaseValue: number;
@@ -70,6 +72,7 @@ export function computeMemberMonthlyStatements(
       return sum + r.quantityLiters * (transporter?.costPerLiter ?? 0);
     }, 0);
 
+    const debt = member.debt ?? 0;
     return {
       memberId: member.id,
       memberName: member.fullName,
@@ -78,7 +81,8 @@ export function computeMemberMonthlyStatements(
       pricePerLiter: effectivePrice,
       grossAmount,
       transportCost,
-      netAmount: grossAmount - transportCost,
+      debt,
+      netAmount: grossAmount - transportCost - debt,
       purchaseValue: totalLiters * milkPurchasePrice,
       sellValue: totalLiters * milkSellPrice,
     };

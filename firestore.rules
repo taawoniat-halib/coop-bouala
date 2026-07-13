@@ -32,7 +32,7 @@ service cloud.firestore {
     }
     match /transporters/{docId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && role() in ['admin', 'collector'];
+      allow write: if isAdmin();
     }
     match /prices/{docId} {
       allow read: if isSignedIn();

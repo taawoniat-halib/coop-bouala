@@ -33,6 +33,8 @@ export interface Member {
   active: boolean;
   /** الناقل المرتبط بهذا المنخرط */
   transporterId?: string;
+  /** الديون المستحقة على المنخرط بالدرهم — تُخصم من الصافي الشهري */
+  debt?: number;
   createdAt: number;
 }
 

@@ -202,8 +202,8 @@ export default function MonthlyReport() {
         return s + r.quantityLiters * (tp?.costPerLiter ?? 0);
       }, 0);
 
-      // Debts (الديون) — no field in schema yet, always 0
-      const debt = 0;
+      // الديون المستحقة على المنخرط (من بيانات المنخرط)
+      const debt = member.debt ?? 0;
       const deduction = transport + debt;
       const net = totalValue - deduction;
 

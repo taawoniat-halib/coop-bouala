@@ -52,6 +52,7 @@ export default function Members() {
     address: '',
     active: true,
     transporterId: '',
+    debt: '',
     createAccount: false,
     email: '',
     password: '',
@@ -83,6 +84,7 @@ export default function Members() {
         address: member.address || '',
         active: member.active,
         transporterId: member.transporterId || '',
+        debt: member.debt != null ? String(member.debt) : '',
         createAccount: false,
         email: '',
         password: '',
@@ -96,6 +98,7 @@ export default function Members() {
         address: '',
         active: true,
         transporterId: '',
+        debt: '',
         createAccount: false,
         email: '',
         password: '',
@@ -129,6 +132,7 @@ export default function Members() {
       address: formData.address,
       active: formData.active,
       ...(formData.transporterId ? { transporterId: formData.transporterId } : {}),
+      debt: formData.debt !== '' ? Number(formData.debt) : 0,
     };
     try {
       if (editingId) {
@@ -220,6 +224,23 @@ export default function Members() {
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="debt">الديون المستحقة (درهم)</Label>
+                <Input
+                  id="debt"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  dir="ltr"
+                  placeholder="0.00"
+                  value={formData.debt}
+                  onChange={(e) => setFormData({ ...formData, debt: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  تُخصم تلقائياً من الصافي الشهري في التقارير
+                </p>
               </div>
 
               {/* ── Transporter selection ── */}
