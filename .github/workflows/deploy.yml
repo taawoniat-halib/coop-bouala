@@ -24,20 +24,26 @@ jobs:
           for i in 1 2 3 4 5; do
             echo "npm ci attempt $i..."
             npm ci
-            if [ $? -eq 0 ]; then
+            ci_status=$?
+            # npm ci can print its internal "Exit handler never called!" bug and
+            # still return exit code 0 while leaving node_modules incomplete
+            # (missing devDependency type packages), so verify the install is
+            # actually complete instead of trusting the exit code alone.
+            if [ $ci_status -eq 0 ] && [ -d node_modules/@types/node ] && [ -d node_modules/vite ]; then
               success=1
               break
             fi
-            echo "npm ci failed (attempt $i). Cleaning npm cache and node_modules before retrying..."
+            echo "npm ci attempt $i incomplete (exit=$ci_status). Cleaning npm cache and node_modules before retrying..."
             npm cache clean --force
             rm -rf node_modules
             sleep $((i * 5))
           done
           set -e
           if [ "$success" -ne 1 ]; then
-            echo "npm ci failed after multiple attempts."
+            echo "npm ci failed to produce a complete install after multiple attempts."
             exit 1
           fi
+          echo "Dependencies installed successfully."
 
       - name: Build
         run: npm run build
