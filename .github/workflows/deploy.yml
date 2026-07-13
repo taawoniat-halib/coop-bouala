@@ -1,30 +1,51 @@
-name: Deploy to Firebase Hosting
+name: Build & Deploy to GitHub Pages
 
-# ينشر التطبيق تلقائياً على Firebase Hosting عند كل push إلى main.
-# يتطلب سرّاً واحداً في إعدادات هذا المستودع على GitHub:
-# Settings → Secrets and variables → Actions → New repository secret
-#   الاسم: FIREBASE_SERVICE_ACCOUNT
-#   القيمة: محتوى ملف مفتاح حساب خدمة Firebase (JSON)
-#   يمكن إنشاؤه من: Firebase Console → Project settings → Service accounts → Generate new private key
 on:
   push:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  build_and_deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          node-version: 20
-      - run: npm install -g npm@11
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
-          projectId: taawoniat-halib
-          channelId: live
+          node-version: '24'
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+        env:
+          npm_config_registry: https://registry.npmjs.org
+
+      - name: Build
+        env:
+          PORT: "3000"
+          BASE_PATH: "/coop-bouala/"
+          NODE_ENV: production
+          FIREBASE_API_KEY: "AIzaSyCdvHYqcq80tG8tAfrE0H0QKKUituyl_Mc"
+          FIREBASE_AUTH_DOMAIN: "taawoniat-halib.firebaseapp.com"
+          FIREBASE_PROJECT_ID: "taawoniat-halib"
+          FIREBASE_STORAGE_BUCKET: "taawoniat-halib.firebasestorage.app"
+          FIREBASE_MESSAGING_SENDER_ID: "822315494823"
+          FIREBASE_APP_ID: "1:822315494823:web:53942719448dd5eba79a82"
+        run: pnpm run build
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist
+          force_orphan: false
