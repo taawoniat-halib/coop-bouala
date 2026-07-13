@@ -16,6 +16,8 @@ import {
   computeMonthlyStockBalance,
   monthKey,
   priceForMonth,
+  monthLabel,
+  generateMonthOptions,
 } from '@/lib/calculations';
 import { printFarmerInvoice, printCompanyInvoice, exportToPdf, exportToExcel, shareOnWhatsApp, buildFarmerWhatsAppMessage } from '@/lib/exportUtils';
 import {
@@ -67,39 +69,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-
-const MONTH_NAMES_AR = [
-  'يناير',
-  'فبراير',
-  'مارس',
-  'أبريل',
-  'ماي',
-  'يونيو',
-  'يوليوز',
-  'غشت',
-  'شتنبر',
-  'أكتوبر',
-  'نونبر',
-  'دجنبر',
-];
-
-function monthLabel(month: string) {
-  const [y, m] = month.split('-');
-  return `${MONTH_NAMES_AR[parseInt(m) - 1]} ${y}`;
-}
-
-/** Generate the last N months as {value, label} pairs, newest first */
-function generateMonthOptions(count = 24) {
-  const options: { value: string; label: string }[] = [];
-  const now = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const label = monthLabel(value);
-    options.push({ value, label });
-  }
-  return options;
-}
 
 const MONTH_OPTIONS = generateMonthOptions(24);
 

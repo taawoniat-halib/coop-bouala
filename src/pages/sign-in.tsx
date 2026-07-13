@@ -45,7 +45,8 @@ export default function SignIn() {
     setIsSubmitting(true);
     try {
       await signIn(email, password);
-      setLocation('/');
+      // onAuthStateChanged سيُحدّث appUser تلقائياً، والتحقق في أعلى المكوّن
+      // سيعيد التوجيه إلى الصفحة الصحيحة حسب الدور (مدير → / ، غيره → /milk)
     } catch (err: any) {
       const code = err?.code || '';
       setError(mapFirebaseError(code));

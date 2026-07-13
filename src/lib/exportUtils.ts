@@ -1,3 +1,5 @@
+import { MONTH_NAMES_AR, MONTH_NAMES_FR, monthLabel as monthAr, monthLabelFr as monthFr } from '@/lib/calculations';
+
 export interface ExportColumn { header: string; key: string; }
 
 export function printPage() { window.print(); }
@@ -99,23 +101,6 @@ export function shareOnWhatsApp(message: string, phone?: string) {
 
 // ─── Shared helpers ──────────────────────────────────────────────
 
-const MONTH_NAMES_AR = [
-  'يناير','فبراير','مارس','أبريل','ماي','يونيو',
-  'يوليوز','غشت','شتنبر','أكتوبر','نونبر','دجنبر',
-];
-const MONTH_NAMES_FR = [
-  'Janvier','Février','Mars','Avril','Mai','Juin',
-  'Juillet','Août','Septembre','Octobre','Novembre','Décembre',
-];
-
-function monthAr(month: string) {
-  const [y, m] = month.split('-');
-  return `${MONTH_NAMES_AR[parseInt(m) - 1]} ${y}`;
-}
-function monthFr(month: string) {
-  const [y, m] = month.split('-');
-  return `${MONTH_NAMES_FR[parseInt(m) - 1]} ${y}`;
-}
 function currencyLabel(currency: string) {
   return currency === 'MAD' || currency === 'درهم' ? 'DH' : currency;
 }
@@ -590,8 +575,7 @@ export function buildFarmerWhatsAppMessage(opts: {
   const { farmerName, month, totalLiters, pricePerLiter, grossAmount, transportCost, netAmount, currency, coopName, paid } = opts;
   const curr = currency === 'درهم' || currency === 'MAD' ? 'درهم' : currency;
   const [year, monthNum] = month.split('-');
-  const MONTHS = ['يناير','فبراير','مارس','أبريل','ماي','يونيو','يوليوز','غشت','شتنبر','أكتوبر','نونبر','دجنبر'];
-  const monthName = MONTHS[parseInt(monthNum) - 1];
+  const monthName = MONTH_NAMES_AR[parseInt(monthNum) - 1];
   const status = paid ? '✅ تم الأداء' : '⏳ في انتظار الأداء';
 
   return [

@@ -8,7 +8,7 @@ import {
   useTransporters,
   usePrices,
 } from '@/hooks/useData';
-import { computeDashboardSummary, monthKey } from '@/lib/calculations';
+import { computeDashboardSummary, monthKey, monthShortLabel } from '@/lib/calculations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Droplets,
@@ -35,15 +35,6 @@ import {
   Bar,
   Legend,
 } from 'recharts';
-
-const MONTH_NAMES_AR_SHORT = [
-  'ينا','فبر','مار','أبر','ماي','يون',
-  'يول','غشت','شتن','أكت','نون','دجن',
-];
-function shortMonthLabel(month: string) {
-  const [, m] = month.split('-');
-  return MONTH_NAMES_AR_SHORT[parseInt(m, 10) - 1];
-}
 
 export default function Dashboard() {
   const { data: receipts,   loading: l1 } = useMilkReceived();
@@ -116,7 +107,7 @@ export default function Dashboard() {
       const liters = receipts.filter(r => monthKey(r.date) === month).reduce((s,r)=>s+r.quantityLiters,0);
       const income = incomes.filter(i => monthKey(i.date) === month).reduce((s,i)=>s+i.amount,0);
       const expense = expenses.filter(e => monthKey(e.date) === month).reduce((s,e)=>s+e.amount,0);
-      return { month, label: shortMonthLabel(month), liters, income, expense };
+      return { month, label: monthShortLabel(month), liters, income, expense };
     });
   }, [receipts, incomes, expenses]);
 

@@ -11,7 +11,7 @@ import {
 import { useSettings } from '@/hooks/useSettings';
 import { useState, useMemo, useId } from 'react';
 import { format } from 'date-fns';
-import { monthKey, priceForMonth } from '@/lib/calculations';
+import { monthKey, priceForMonth, monthLabel as monthLabelAr, monthLabelFr, generateMonthOptions } from '@/lib/calculations';
 import {
   Table,
   TableBody,
@@ -35,33 +35,6 @@ import { exportToExcel } from '@/lib/exportUtils';
 import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar } from 'lucide-react';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const MONTHS_AR = [
-  'يناير','فبراير','مارس','أبريل','ماي','يونيو',
-  'يوليوز','غشت','شتنبر','أكتوبر','نونبر','دجنبر',
-];
-const MONTHS_FR = [
-  'Janvier','Février','Mars','Avril','Mai','Juin',
-  'Juillet','Août','Septembre','Octobre','Novembre','Décembre',
-];
-
-function monthLabelAr(month: string) {
-  const [y, m] = month.split('-');
-  return `${MONTHS_AR[parseInt(m) - 1]} ${y}`;
-}
-function monthLabelFr(month: string) {
-  const [y, m] = month.split('-');
-  return `${MONTHS_FR[parseInt(m) - 1]} ${y}`;
-}
-function generateMonthOptions(count = 36) {
-  const opts: { value: string; label: string }[] = [];
-  const now = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    opts.push({ value, label: monthLabelAr(value) });
-  }
-  return opts;
-}
 const MONTH_OPTIONS = generateMonthOptions(36);
 
 // Format liters (empty string when 0)

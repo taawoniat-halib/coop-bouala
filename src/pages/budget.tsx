@@ -45,6 +45,10 @@ export default function Budget() {
     notes: '',
   });
 
+  /** إعادة تهيئة النموذج عند فتح أي حوار لمنع ظهور قيم من الحوار السابق */
+  const resetForm = () =>
+    setForm({ date: format(new Date(), 'yyyy-MM-dd'), label: '', amount: '', category: '', notes: '' });
+
   const filteredIncomes = useMemo(
     () => incomes.filter((i) => monthKey(i.date) === monthFilter),
     [incomes, monthFilter],
@@ -169,7 +173,7 @@ export default function Budget() {
         <h3 className="text-base font-semibold">سجل العمليات</h3>
 
         <div className="flex gap-2">
-          <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
+          <Dialog open={isIncomeDialogOpen} onOpenChange={(open) => { if (open) resetForm(); setIsIncomeDialogOpen(open); }}>
             <DialogTrigger asChild>
               <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2">
                 <Plus className="h-4 w-4" /> مدخول جديد
@@ -217,7 +221,7 @@ export default function Budget() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
+          <Dialog open={isExpenseDialogOpen} onOpenChange={(open) => { if (open) resetForm(); setIsExpenseDialogOpen(open); }}>
             <DialogTrigger asChild>
               <Button variant="destructive" className="gap-2">
                 <Plus className="h-4 w-4" /> مصروف جديد
