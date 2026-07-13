@@ -114,7 +114,7 @@ export default function Milk() {
   const handleReceiptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receiptForm.memberId) {
-      toast({ variant: 'destructive', title: 'خطأ', description: 'يجب اختيار الفلاح' });
+      toast({ variant: 'destructive', title: 'خطأ', description: 'يجب اختيار المنخرط' });
       return;
     }
     try {
@@ -188,7 +188,7 @@ export default function Milk() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">إدارة الحليب</h2>
-          <p className="text-muted-foreground mt-1">تسجيل الاستلام من الفلاحين والتسليم للشركات</p>
+          <p className="text-muted-foreground mt-1">تسجيل الاستلام من المنخرطين والتسليم للشركات</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -213,7 +213,7 @@ export default function Milk() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>تحديد ثمن شراء الحليب من الفلاحين</DialogTitle>
+                <DialogTitle>تحديد ثمن شراء الحليب من المنخرطين</DialogTitle>
               </DialogHeader>
               <form onSubmit={handlePriceSubmit} className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -253,7 +253,7 @@ export default function Milk() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6 max-w-md h-12">
           <TabsTrigger value="received" className="gap-2 text-base">
-            <ArrowDownRight className="h-4 w-4" /> استلام (فلاحون)
+            <ArrowDownRight className="h-4 w-4" /> استلام (منخرطون)
           </TabsTrigger>
           <TabsTrigger value="delivered" className="gap-2 text-base">
             <ArrowUpRight className="h-4 w-4" /> تسليم (شركات)
@@ -288,20 +288,20 @@ export default function Milk() {
                 )}
                 {isCollectorWithMember ? (
                   <div className="space-y-2">
-                    <Label>الفلاح</Label>
+                    <Label>المنخرط</Label>
                     <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">
                       {getMemberName(receiptForm.memberId)}
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label>الفلاح</Label>
+                    <Label>المنخرط</Label>
                     <Select
                       value={receiptForm.memberId}
                       onValueChange={(val) => setReceiptForm({ ...receiptForm, memberId: val })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="اختر الفلاح" />
+                        <SelectValue placeholder="اختر المنخرط" />
                       </SelectTrigger>
                       <SelectContent>
                         {activeMembers.map((m) => (
@@ -407,7 +407,7 @@ export default function Milk() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>الفلاح</TableHead>
+                      <TableHead>المنخرط</TableHead>
                       <TableHead>الكمية</TableHead>
                       <TableHead>الثمن/لتر</TableHead>
                       <TableHead>الدهن %</TableHead>

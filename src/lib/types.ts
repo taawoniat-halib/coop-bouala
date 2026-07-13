@@ -18,7 +18,7 @@ export interface Settings {
   currency: string; // MAD
   phone?: string;
   address?: string;
-  /** ثمن شراء لتر الحليب من الفلاحين */
+  /** ثمن شراء لتر الحليب من المنخرطين */
   milkPurchasePrice?: number; // default 4.2
   /** ثمن بيع لتر الحليب للشركة */
   milkSellPrice?: number; // default 4.5
@@ -31,7 +31,7 @@ export interface Member {
   phone?: string;
   address?: string;
   active: boolean;
-  /** الناقل المرتبط بهذا الفلاح */
+  /** الناقل المرتبط بهذا المنخرط */
   transporterId?: string;
   createdAt: number;
 }

@@ -296,7 +296,7 @@ export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void>
 
 <div class="info-row">
   <div class="info-box right-box" style="flex:1.4">
-    <div class="info-box-title">بيانات الفلاح — Agriculteur</div>
+    <div class="info-box-title">بيانات المنخرط — Agriculteur</div>
     <div class="info-row-item"><strong>الاسم / Nom :</strong> ${farmerName}</div>
     ${farmerCin ? `<div class="info-row-item"><strong>ب.ت.و / CIN :</strong> ${farmerCin}</div>` : ''}
     ${farmerPhone ? `<div class="info-row-item"><strong>الهاتف / Tél :</strong> ${farmerPhone}</div>` : ''}
@@ -353,7 +353,7 @@ ${statusBadge}
 
 <div class="sig-row">
   <div class="sig-box">
-    <div class="sig-title">إمضاء الفلاح / Signature agriculteur</div>
+    <div class="sig-title">إمضاء المنخرط / Signature agriculteur</div>
   </div>
   <div class="sig-box">
     <div class="sig-title">إمضاء المسؤول / Signature responsable</div>
@@ -553,7 +553,7 @@ export function buildFarmerWhatsAppMessage(opts: {
     `🥛 *${coopName}*`,
     `📋 كشف حساب شهر ${monthName} ${year}`,
     `━━━━━━━━━━━━━━━━━━━━`,
-    `👤 الفلاح: *${farmerName}*`,
+    `👤 المنخرط: *${farmerName}*`,
     ``,
     `📦 الكمية المسلمة: *${totalLiters.toFixed(1)} لتر*`,
     `💰 الثمن: *${pricePerLiter.toFixed(2)} ${curr}/ل*`,

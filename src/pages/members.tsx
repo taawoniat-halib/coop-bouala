@@ -133,7 +133,7 @@ export default function Members() {
     try {
       if (editingId) {
         await update(editingId, payload);
-        toast({ title: 'تم التحديث', description: 'تم تحديث بيانات الفلاح بنجاح.' });
+        toast({ title: 'تم التحديث', description: 'تم تحديث بيانات المنخرط بنجاح.' });
       } else {
         const docRef = await add(payload);
         if (formData.createAccount) {
@@ -141,7 +141,7 @@ export default function Members() {
             memberId: docRef.id,
           });
         }
-        toast({ title: 'تمت الإضافة', description: 'تمت إضافة الفلاح بنجاح.' });
+        toast({ title: 'تمت الإضافة', description: 'تمت إضافة المنخرط بنجاح.' });
       }
       setIsDialogOpen(false);
     } catch (err: any) {
@@ -150,10 +150,10 @@ export default function Members() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا الفلاح؟')) {
+    if (confirm('هل أنت متأكد من حذف هذا المنخرط؟')) {
       try {
         await remove(id);
-        toast({ title: 'تم الحذف', description: 'تم حذف الفلاح بنجاح.' });
+        toast({ title: 'تم الحذف', description: 'تم حذف المنخرط بنجاح.' });
       } catch (err: any) {
         toast({ variant: 'destructive', title: 'خطأ', description: err.message });
       }
@@ -164,9 +164,9 @@ export default function Members() {
     <Layout>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">الفلاحون</h2>
+          <h2 className="text-3xl font-bold tracking-tight">المنخرطون</h2>
           <p className="text-muted-foreground mt-1">
-            إدارة الفلاحين وأعضاء التعاونية ({members.length})
+            إدارة المنخرطين وأعضاء التعاونية ({members.length})
           </p>
         </div>
 
@@ -174,12 +174,12 @@ export default function Members() {
           <DialogTrigger asChild>
             <Button onClick={() => handleOpenDialog()} className="gap-2 text-base px-5 py-2.5">
               <Plus className="h-5 w-5" />
-              إضافة فلاح جديد
+              إضافة منخرط جديد
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingId ? 'تعديل بيانات الفلاح' : 'إضافة فلاح جديد'}</DialogTitle>
+              <DialogTitle>{editingId ? 'تعديل بيانات المنخرط' : 'إضافة منخرط جديد'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 py-4">
               <div className="space-y-2">
@@ -256,7 +256,7 @@ export default function Members() {
                   checked={formData.active}
                   onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
                 />
-                <Label htmlFor="active">نشط</Label>
+                <Label htmlFor="active">منخرط</Label>
               </div>
 
               {!editingId && isAdmin && (
@@ -269,7 +269,7 @@ export default function Members() {
                         setFormData({ ...formData, createAccount: checked })
                       }
                     />
-                    <Label htmlFor="createAccount">إنشاء حساب دخول للفلاح</Label>
+                    <Label htmlFor="createAccount">إنشاء حساب دخول للمنخرط</Label>
                   </div>
                   {formData.createAccount && (
                     <>
@@ -345,7 +345,7 @@ export default function Members() {
               ) : filteredMembers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                    لا يوجد فلاحون. اضغط "إضافة فلاح جديد" للبدء.
+                    لا يوجد منخرطون. اضغط "إضافة منخرط جديد" للبدء.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -369,14 +369,14 @@ export default function Members() {
                           variant="outline"
                           className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1"
                         >
-                          <CheckCircle2 className="h-3 w-3" /> نشط
+                          <CheckCircle2 className="h-3 w-3" /> منخرط
                         </Badge>
                       ) : (
                         <Badge
                           variant="outline"
                           className="bg-destructive/10 text-destructive border-destructive/20 gap-1"
                         >
-                          <XCircle className="h-3 w-3" /> غير نشط
+                          <XCircle className="h-3 w-3" /> غير منخرط
                         </Badge>
                       )}
                     </TableCell>

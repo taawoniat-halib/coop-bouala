@@ -364,9 +364,9 @@ export default function Reports() {
   // ── Export helpers ──
   const handleExportMembersPdf = () => {
     exportToPdf(
-      `مستحقات الفلاحين — ${monthLabel(monthFilter)}`,
+      `مستحقات المنخرطين — ${monthLabel(monthFilter)}`,
       [
-        { header: 'الفلاح', key: 'name' },
+        { header: 'المنخرط', key: 'name' },
         { header: 'الكمية (ل)', key: 'liters' },
         { header: 'الثمن/ل', key: 'price' },
         { header: 'الإجمالي', key: 'gross' },
@@ -389,7 +389,7 @@ export default function Reports() {
     exportToExcel(
       `مستحقات ${monthLabel(monthFilter)}`,
       [
-        { header: 'الفلاح', key: 'name' },
+        { header: 'المنخرط', key: 'name' },
         { header: 'الكمية (لتر)', key: 'liters' },
         { header: 'الثمن/لتر', key: 'price' },
         { header: 'الإجمالي', key: 'gross' },
@@ -410,7 +410,7 @@ export default function Reports() {
 
   const handleExportGridPdf = () => {
     const columns = [
-      { header: 'الفلاح', key: 'name' },
+      { header: 'المنخرط', key: 'name' },
       ...days.map((d) => ({ header: String(d), key: `d${d}` })),
       { header: 'المجموع', key: 'total' },
     ];
@@ -433,7 +433,7 @@ export default function Reports() {
 
   const handleExportGridExcel = () => {
     const columns = [
-      { header: 'الفلاح', key: 'name' },
+      { header: 'المنخرط', key: 'name' },
       ...days.map((d) => ({ header: String(d), key: `d${d}` })),
       { header: 'المجموع (ل)', key: 'total' },
     ];
@@ -457,13 +457,13 @@ export default function Reports() {
   const handleExportFarmerPdf = () => {
     if (!farmerReport) return;
     exportToPdf(
-      `تقرير الفلاح: ${farmerReport.member.fullName} — ${monthLabel(monthFilter)}`,
+      `تقرير المنخرط: ${farmerReport.member.fullName} — ${monthLabel(monthFilter)}`,
       [
         { header: 'البيان', key: 'label' },
         { header: 'القيمة', key: 'value' },
       ],
       [
-        { label: 'اسم الفلاح', value: farmerReport.member.fullName },
+        { label: 'اسم المنخرط', value: farmerReport.member.fullName },
         { label: 'اسم المركز', value: settings?.coopName || '' },
         {
           label: 'الفترة',
@@ -516,14 +516,14 @@ export default function Reports() {
           <DialogHeader className="px-4 pt-4 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <Printer className="h-4 w-4" />
-              طباعة فاتورة فلاح — {monthFilter}
+              طباعة فاتورة منخرط — {monthFilter}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              ابحث عن الفلاح باسمه أو جزء منه ثم اضغط عليه لطباعة فاتورته
+              ابحث عن المنخرط باسمه أو جزء منه ثم اضغط عليه لطباعة فاتورته
             </DialogDescription>
           </DialogHeader>
           <Command className="border-t rounded-none" dir="rtl">
-            <CommandInput placeholder="ابحث عن فلاح..." className="h-10" />
+            <CommandInput placeholder="ابحث عن منخرط..." className="h-10" />
             <CommandList className="max-h-72">
               <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
                 لا يوجد فلاح بهذا الاسم
@@ -570,7 +570,7 @@ export default function Reports() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">التقارير</h2>
           <p className="text-muted-foreground mt-1">
-            مستحقات الفلاحين وتسليمات الشركات والتقارير التفصيلية
+            مستحقات المنخرطين وتسليمات الشركات والتقارير التفصيلية
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -593,7 +593,7 @@ export default function Reports() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
-          <TabsTrigger value="members">مستحقات الفلاحين</TabsTrigger>
+          <TabsTrigger value="members">مستحقات المنخرطين</TabsTrigger>
           <TabsTrigger value="companies">تسليمات الشركات</TabsTrigger>
           <TabsTrigger value="advanced">التقرير التفصيلي</TabsTrigger>
         </TabsList>
@@ -604,7 +604,7 @@ export default function Reports() {
             <CardHeader>
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                  <CardTitle>مستحقات الفلاحين — {monthFilter}</CardTitle>
+                  <CardTitle>مستحقات المنخرطين — {monthFilter}</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
                     اضغط <strong>فاتورة</strong> في صف الفلاح أو استخدم زر البحث لطباعة الفاتورة
                     مباشرة.

@@ -219,7 +219,7 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground">{currency}</p>
             </div>
             <div className="rounded-lg bg-red-500/10 p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">مستحقات الفلاحين</p>
+              <p className="text-xs text-muted-foreground mb-1">مستحقات المنخرطين</p>
               <p className="text-lg font-bold text-red-600 font-mono">
                 {monthlyFinance.farmerCost.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
               </p>
@@ -267,7 +267,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-1">
-              <TrendingUp className="h-4 w-4 text-amber-500" /> أعلى فلاحين هذا الشهر
+              <TrendingUp className="h-4 w-4 text-amber-500" /> أعلى منخرطين هذا الشهر
             </CardTitle>
           </CardHeader>
           <CardContent>
