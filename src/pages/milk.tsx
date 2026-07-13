@@ -34,6 +34,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/hooks/useSettings';
 import { monthKey } from '@/lib/calculations';
+import { MilkPrintDialog } from '@/components/MilkPrintDialog';
+import { TransportPrintDialog } from '@/components/TransportPrintDialog';
 
 export default function Milk() {
   const { data: receipts, add: addReceipt, remove: removeReceipt } = useMilkReceived();
@@ -75,21 +77,18 @@ export default function Milk() {
     ? prices.find((p) => p.month === monthKey(dateFilter))?.pricePerLiter || 0
     : 0;
 
-  // Auto-populate memberId if the logged-in user is linked to a member
   useEffect(() => {
     if (appUser?.memberId) {
       setReceiptForm((prev) => ({ ...prev, memberId: appUser.memberId! }));
     }
   }, [appUser?.memberId]);
 
-  // Pre-fill price per liter from the current month price
   useEffect(() => {
     if (currentMonthPrice) {
       setReceiptForm((prev) => ({ ...prev, pricePerLiter: String(currentMonthPrice) }));
     }
   }, [currentMonthPrice]);
 
-  // Sync form dates with the dateFilter (admin may need to enter a past record)
   useEffect(() => {
     if (dateFilter) {
       setReceiptForm((prev) => ({ ...prev, date: dateFilter }));
@@ -137,7 +136,6 @@ export default function Milk() {
         fat: '',
         notes: '',
       }));
-      // Update filter to match the recorded date
       setDateFilter(receiptForm.date);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'خطأ', description: err.message });
@@ -260,7 +258,6 @@ export default function Milk() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ─── TAB 1: RECEIVED ─── */}
         <TabsContent value="received" className="space-y-6">
           <div className="grid md:grid-cols-3 gap-6">
             <div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -395,12 +392,26 @@ export default function Milk() {
             </div>
 
             <div className="md:col-span-2 rounded-xl border border-border bg-card overflow-hidden shadow-sm flex flex-col">
-              <div className="p-4 border-b border-border bg-muted/20 flex justify-between items-center">
-                <h3 className="font-semibold">سجل الاستلام ليوم {dateLabel}</h3>
-                <div className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
-                  المجموع:{' '}
-                  {filteredReceipts.reduce((sum, r) => sum + r.quantityLiters, 0).toLocaleString()}{' '}
-                  لتر
+              <div className="p-4 border-b border-border bg-muted/20 flex justify-between items-center flex-wrap gap-3">
+                <div>
+                  <h3 className="font-semibold">سجل الاستلام ليوم {dateLabel}</h3>
+                  <div className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full mt-2 inline-block">
+                    المجموع: {filteredReceipts.reduce((sum, r) => sum + r.quantityLiters, 0).toLocaleString()} لتر
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <MilkPrintDialog
+                    receipts={filteredReceipts}
+                    dateLabel={dateLabel}
+                    getMemberName={getMemberName}
+                    currency={currency || ''}
+                  />
+                  <TransportPrintDialog
+                    receipts={filteredReceipts}
+                    dateLabel={dateLabel}
+                    getMemberName={getMemberName}
+                    currency={currency || ''}
+                  />
                 </div>
               </div>
               <div className="overflow-x-auto flex-1">
@@ -460,7 +471,6 @@ export default function Milk() {
           </div>
         </TabsContent>
 
-        {/* ─── TAB 2: DELIVERED ─── */}
         <TabsContent value="delivered" className="space-y-6">
           <div className="grid md:grid-cols-3 gap-6">
             <div className="md:col-span-1 rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -551,11 +561,7 @@ export default function Milk() {
               <div className="p-4 border-b border-border bg-muted/20 flex justify-between items-center">
                 <h3 className="font-semibold">سجل التسليم ليوم {dateLabel}</h3>
                 <div className="text-sm font-medium bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full">
-                  المجموع:{' '}
-                  {filteredDeliveries
-                    .reduce((sum, d) => sum + d.quantityLiters, 0)
-                    .toLocaleString()}{' '}
-                  لتر
+                  المجموع: {filteredDeliveries.reduce((sum, d) => sum + d.quantityLiters, 0).toLocaleString()} لتر
                 </div>
               </div>
               <div className="overflow-x-auto flex-1">
