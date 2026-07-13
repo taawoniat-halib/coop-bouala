@@ -21,9 +21,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install
-        env:
-          npm_config_registry: https://registry.npmjs.org/
+        run: npm install --no-package-lock
 
       - name: Build
         run: npx vite build --base=/coop-bouala/
