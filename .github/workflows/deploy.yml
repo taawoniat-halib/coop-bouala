@@ -1,0 +1,29 @@
+name: Deploy to Firebase Hosting
+
+# ينشر التطبيق تلقائياً على Firebase Hosting عند كل push إلى main.
+# يتطلب سرّاً واحداً في إعدادات هذا المستودع على GitHub:
+# Settings → Secrets and variables → Actions → New repository secret
+#   الاسم: FIREBASE_SERVICE_ACCOUNT
+#   القيمة: محتوى ملف مفتاح حساب خدمة Firebase (JSON)
+#   يمكن إنشاؤه من: Firebase Console → Project settings → Service accounts → Generate new private key
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: taawoniat-halib
+          channelId: live

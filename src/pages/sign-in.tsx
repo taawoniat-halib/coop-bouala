@@ -1,0 +1,111 @@
+import { useState } from 'react';
+import { useLocation } from 'wouter';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import logo from '@/assets/logo.png';
+
+function mapFirebaseError(code: string): string {
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+    case 'auth/invalid-email':
+      return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+    case 'auth/too-many-requests':
+      return 'تم تجاوز عدد المحاولات المسموح بها. يرجى المحاولة مجدداً بعد قليل.';
+    case 'auth/network-request-failed':
+      return 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت.';
+    case 'auth/user-disabled':
+      return 'تم تعطيل هذا الحساب. يرجى التواصل مع المسؤول.';
+    default:
+      return 'حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.';
+  }
+}
+
+export default function SignIn() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { signIn, appUser } = useAuth();
+  const [, setLocation] = useLocation();
+
+  if (appUser) {
+    setLocation(appUser.role === 'admin' ? '/' : '/milk');
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await signIn(email, password);
+      setLocation('/');
+    } catch (err: any) {
+      const code = err?.code || '';
+      setError(mapFirebaseError(code));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-[100dvh] w-full items-center justify-center bg-background p-4 font-sans" dir="rtl">
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background"></div>
+      
+      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-8 shadow-xl">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary/10">
+            <img src={logo} alt="شعار التعاونية" className="h-full w-full object-contain" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">تعاونية كوب بوعلا</h1>
+        </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="mr-2 text-sm font-medium">{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">البريد الإلكتروني</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="name@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="text-left"
+              dir="ltr"
+              disabled={isSubmitting}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">كلمة المرور</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="text-left"
+              dir="ltr"
+              disabled={isSubmitting}
+            />
+          </div>
+          <Button type="submit" className="w-full mt-6" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'تسجيل الدخول'}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}

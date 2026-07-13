@@ -1,0 +1,64 @@
+rules_version = '2';
+
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function role() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      function isAdmin() {
+        return isSignedIn() && role() == 'admin';
+      }
+
+      match /users/{userId} {
+        allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        // المستخدم يمكنه إنشاء سجل لنفسه فقط بدور محصّل (collector)
+        // المدير يمكنه إنشاء أي حساب بأي دور
+        allow create: if isSignedIn() && (
+          (request.auth.uid == userId && request.resource.data.role == 'collector') ||
+          isAdmin()
+        );
+        allow update, delete: if isAdmin();
+      }
+      match /settings/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+      match /members/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && role() in ['admin', 'collector'];
+      }
+      match /transporters/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && role() in ['admin', 'collector'];
+      }
+      match /prices/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+      match /milk_received/{docId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn() && role() in ['admin', 'collector'];
+        allow delete: if isAdmin();
+      }
+      match /milk_delivered/{docId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn() && role() in ['admin', 'collector'];
+        allow delete: if isAdmin();
+      }
+      match /incomes/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && role() in ['admin', 'accountant'];
+      }
+      match /expenses/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && role() in ['admin', 'accountant'];
+      }
+      match /invoices/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+    }
+  }
