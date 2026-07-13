@@ -1,21 +1,24 @@
 import { Layout } from '@/components/Layout';
 import {
   useMilkReceived,
+  useMilkDelivered,
   useIncomes,
   useExpenses,
   useMembers,
   useTransporters,
+  usePrices,
 } from '@/hooks/useData';
 import { computeDashboardSummary, monthKey } from '@/lib/calculations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Droplets,
   Users,
-  Truck,
   ArrowUpRight,
   ArrowDownRight,
-  DollarSign,
-  Trophy,
+  TrendingUp,
+  Package,
+  BadgeDollarSign,
+  Scale,
 } from 'lucide-react';
 import { format, subMonths } from 'date-fns';
 import { useSettings } from '@/hooks/useSettings';
@@ -34,217 +37,227 @@ import {
 } from 'recharts';
 
 const MONTH_NAMES_AR_SHORT = [
-  'ينا',
-  'فبر',
-  'مار',
-  'أبر',
-  'ماي',
-  'يون',
-  'يول',
-  'غشت',
-  'شتن',
-  'أكت',
-  'نون',
-  'دجن',
+  'ينا','فبر','مار','أبر','ماي','يون',
+  'يول','غشت','شتن','أكت','نون','دجن',
 ];
-
 function shortMonthLabel(month: string) {
   const [, m] = month.split('-');
   return MONTH_NAMES_AR_SHORT[parseInt(m, 10) - 1];
 }
 
 export default function Dashboard() {
-  const { data: receipts, loading: l1 } = useMilkReceived();
-  const { data: incomes, loading: l2 } = useIncomes();
-  const { data: expenses, loading: l3 } = useExpenses();
-  const { data: members, loading: l4 } = useMembers();
-  const { data: transporters, loading: l5 } = useTransporters();
+  const { data: receipts,   loading: l1 } = useMilkReceived();
+  const { data: deliveries, loading: l2 } = useMilkDelivered();
+  const { data: incomes,    loading: l3 } = useIncomes();
+  const { data: expenses,   loading: l4 } = useExpenses();
+  const { data: members,    loading: l5 } = useMembers();
+  const { data: transporters, loading: l6 } = useTransporters();
+  const { data: prices } = usePrices();
   const { settings } = useSettings();
 
-  const loading = l1 || l2 || l3 || l4 || l5;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6;
 
-  // ── Trends: last 6 months of liters received + income/expense (hooks must
-  // run unconditionally, so these are computed before the loading check). ──
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const currentMonth = monthKey(today);
+  const currency = settings?.currency === 'MAD' ? 'درهم' : (settings?.currency ?? 'درهم');
+
+  // ── Monthly stock & profit ──────────────────────────────────
+  const monthlyStock = useMemo(() => {
+    const received = receipts
+      .filter(r => monthKey(r.date) === currentMonth)
+      .reduce((s, r) => s + r.quantityLiters, 0);
+    const delivered = deliveries
+      .filter(d => monthKey(d.date) === currentMonth)
+      .reduce((s, d) => s + d.quantityLiters, 0);
+    return { received, delivered, remaining: received - delivered };
+  }, [receipts, deliveries, currentMonth]);
+
+  const monthlyFinance = useMemo(() => {
+    // Revenue: what companies paid us
+    const revenue = deliveries
+      .filter(d => monthKey(d.date) === currentMonth)
+      .reduce((s, d) => s + d.quantityLiters * d.pricePerLiter, 0);
+
+    // Member payments: what we owe farmers (gross - transport already deducted inside)
+    // Simple: quantity × pricePerLiter for each receipt
+    const monthPrice = prices.find(p => p.month === currentMonth)?.pricePerLiter ?? 0;
+    const farmerCost = receipts
+      .filter(r => monthKey(r.date) === currentMonth)
+      .reduce((s, r) => s + r.quantityLiters * (r.pricePerLiter ?? monthPrice), 0);
+
+    // Transport costs
+    const transportCost = receipts
+      .filter(r => monthKey(r.date) === currentMonth)
+      .reduce((s, r) => s + (r.transportCost ?? 0), 0);
+
+    // Other expenses from budget
+    const otherExpenses = expenses
+      .filter(e => monthKey(e.date) === currentMonth)
+      .reduce((s, e) => s + e.amount, 0);
+
+    // Other income from budget
+    const otherIncome = incomes
+      .filter(i => monthKey(i.date) === currentMonth)
+      .reduce((s, i) => s + i.amount, 0);
+
+    const totalCosts = farmerCost + transportCost + otherExpenses;
+    const totalRevenue = revenue + otherIncome;
+    const profit = totalRevenue - totalCosts;
+
+    return { revenue, farmerCost, transportCost, otherExpenses, otherIncome, totalCosts, totalRevenue, profit };
+  }, [receipts, deliveries, incomes, expenses, prices, currentMonth]);
+
+  // ── Trends: last 6 months ───────────────────────────────────
   const trendData = useMemo(() => {
     const months: string[] = [];
     const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      months.push(format(subMonths(now, i), 'yyyy-MM'));
-    }
-    return months.map((month) => {
-      const liters = receipts
-        .filter((r) => monthKey(r.date) === month)
-        .reduce((sum, r) => sum + r.quantityLiters, 0);
-      const income = incomes
-        .filter((i) => monthKey(i.date) === month)
-        .reduce((sum, i) => sum + i.amount, 0);
-      const expense = expenses
-        .filter((e) => monthKey(e.date) === month)
-        .reduce((sum, e) => sum + e.amount, 0);
+    for (let i = 5; i >= 0; i--) months.push(format(subMonths(now, i), 'yyyy-MM'));
+    return months.map(month => {
+      const liters = receipts.filter(r => monthKey(r.date) === month).reduce((s,r)=>s+r.quantityLiters,0);
+      const income = incomes.filter(i => monthKey(i.date) === month).reduce((s,i)=>s+i.amount,0);
+      const expense = expenses.filter(e => monthKey(e.date) === month).reduce((s,e)=>s+e.amount,0);
       return { month, label: shortMonthLabel(month), liters, income, expense };
     });
   }, [receipts, incomes, expenses]);
 
+  // ── Top farmers this month ──────────────────────────────────
   const topFarmers = useMemo(() => {
-    const currentMonth = monthKey(format(new Date(), 'yyyy-MM-dd'));
     const totals = new Map<string, number>();
     for (const r of receipts) {
       if (monthKey(r.date) !== currentMonth) continue;
       totals.set(r.memberId, (totals.get(r.memberId) ?? 0) + r.quantityLiters);
     }
-    const memberById = new Map(members.map((m) => [m.id, m]));
+    const memberById = new Map(members.map(m => [m.id, m]));
     return Array.from(totals.entries())
-      .map(([memberId, liters]) => ({ name: memberById.get(memberId)?.fullName ?? '—', liters }))
+      .map(([id, liters]) => ({ name: memberById.get(id)?.fullName ?? '—', liters }))
       .sort((a, b) => b.liters - a.liters)
       .slice(0, 5);
-  }, [receipts, members]);
+  }, [receipts, members, currentMonth]);
 
   if (loading) {
     return (
       <Layout>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="h-24 bg-muted/50" />
-            </Card>
+          {[1,2,3,4,5,6].map(i => (
+            <Card key={i} className="animate-pulse"><CardHeader className="h-24 bg-muted/50" /></Card>
           ))}
         </div>
       </Layout>
     );
   }
 
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const summary = computeDashboardSummary(
-    receipts,
-    incomes,
-    expenses,
-    members,
-    transporters,
-    today,
-  );
-  const currency = settings.currency === 'MAD' ? 'درهم' : settings.currency;
-
-  const statCards = [
-    {
-      title: 'حليب اليوم',
-      value: `${summary.todayLiters.toLocaleString()} لتر`,
-      icon: Droplets,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
-    },
-    {
-      title: 'حليب الشهر',
-      value: `${summary.monthLiters.toLocaleString()} لتر`,
-      icon: Droplets,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-    },
-    {
-      title: 'مداخيل الشهر',
-      value: `${summary.monthIncome.toLocaleString()} ${currency}`,
-      icon: ArrowUpRight,
-      color: 'text-emerald-500',
-      bgColor: 'bg-emerald-500/10',
-    },
-    {
-      title: 'مصاريف الشهر',
-      value: `${summary.monthExpense.toLocaleString()} ${currency}`,
-      icon: ArrowDownRight,
-      color: 'text-destructive',
-      bgColor: 'bg-destructive/10',
-    },
-    {
-      title: 'الرصيد الشهري',
-      value: `${summary.monthBalance.toLocaleString()} ${currency}`,
-      icon: DollarSign,
-      color: summary.monthBalance >= 0 ? 'text-emerald-500' : 'text-destructive',
-      bgColor: summary.monthBalance >= 0 ? 'bg-emerald-500/10' : 'bg-destructive/10',
-    },
-    {
-      title: 'الأعضاء النشطين',
-      value: summary.activeMembers.toLocaleString(),
-      icon: Users,
-      color: 'text-amber-500',
-      bgColor: 'bg-amber-500/10',
-    },
-    {
-      title: 'الناقلين النشطين',
-      value: summary.activeTransporters.toLocaleString(),
-      icon: Truck,
-      color: 'text-indigo-500',
-      bgColor: 'bg-indigo-500/10',
-    },
-    {
-      title: 'حليب السنة',
-      value: `${summary.yearLiters.toLocaleString()} لتر`,
-      icon: Droplets,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
-    },
-  ];
+  const summary = computeDashboardSummary(receipts, incomes, expenses, members, transporters, today);
 
   return (
     <Layout>
+      {/* ── Header ── */}
       <div className="mb-6">
-        <h2 className="text-3xl font-bold tracking-tight">نظرة عامة</h2>
-        <p className="text-muted-foreground mt-1">ملخص نشاط التعاونية لليوم والشهر الحالي.</p>
+        <h2 className="text-3xl font-bold tracking-tight">لوحة القيادة</h2>
+        <p className="text-muted-foreground mt-1">{format(new Date(), 'EEEE، dd/MM/yyyy')} — شهر {currentMonth}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index} className="overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full ${stat.bgColor}`}
-                >
-                  <Icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold font-mono tracking-tight" dir="ltr">
-                  {stat.value}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">اتجاه استلام الحليب — آخر 6 أشهر</CardTitle>
+      {/* ── Row 1: daily + month liters + stock ── */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-4">
+        <Card className="border-blue-500/20 bg-blue-500/5">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">حليب اليوم</CardTitle>
+            <Droplets className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="h-64" dir="ltr">
+            <p className="text-2xl font-bold">{summary.todayLiters.toLocaleString()} <span className="text-sm font-normal">لتر</span></p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-indigo-500/20 bg-indigo-500/5">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">مستلم هذا الشهر</CardTitle>
+            <ArrowDownRight className="h-4 w-4 text-indigo-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{monthlyStock.received.toLocaleString()} <span className="text-sm font-normal">لتر</span></p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-emerald-500/20 bg-emerald-500/5">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">مسلَّم للشركات</CardTitle>
+            <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{monthlyStock.delivered.toLocaleString()} <span className="text-sm font-normal">لتر</span></p>
+          </CardContent>
+        </Card>
+
+        <Card className={monthlyStock.remaining >= 0 ? 'border-amber-500/20 bg-amber-500/5' : 'border-destructive/20 bg-destructive/5'}>
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">المخزون المتبقي</CardTitle>
+            <Package className={`h-4 w-4 ${monthlyStock.remaining >= 0 ? 'text-amber-500' : 'text-destructive'}`} />
+          </CardHeader>
+          <CardContent>
+            <p className={`text-2xl font-bold ${monthlyStock.remaining >= 0 ? '' : 'text-destructive'}`}>
+              {monthlyStock.remaining.toLocaleString()} <span className="text-sm font-normal">لتر</span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">مستلم − مسلَّم</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Row 2: Financial summary ── */}
+      <Card className="mb-4 border-primary/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Scale className="h-4 w-4 text-primary" /> الملخص المالي — شهر {currentMonth}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="rounded-lg bg-emerald-500/10 p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">مبيعات الشركات</p>
+              <p className="text-lg font-bold text-emerald-600 font-mono">
+                {monthlyFinance.revenue.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+              </p>
+              <p className="text-xs text-muted-foreground">{currency}</p>
+            </div>
+            <div className="rounded-lg bg-red-500/10 p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">مستحقات الفلاحين</p>
+              <p className="text-lg font-bold text-red-600 font-mono">
+                {monthlyFinance.farmerCost.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+              </p>
+              <p className="text-xs text-muted-foreground">{currency}</p>
+            </div>
+            <div className="rounded-lg bg-orange-500/10 p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">مصاريف النقل + أخرى</p>
+              <p className="text-lg font-bold text-orange-600 font-mono">
+                {(monthlyFinance.transportCost + monthlyFinance.otherExpenses).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+              </p>
+              <p className="text-xs text-muted-foreground">{currency}</p>
+            </div>
+            <div className={`rounded-lg p-3 text-center ${monthlyFinance.profit >= 0 ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+              <p className="text-xs text-muted-foreground mb-1">الربح الصافي</p>
+              <p className={`text-lg font-bold font-mono ${monthlyFinance.profit >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {monthlyFinance.profit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+              </p>
+              <p className="text-xs text-muted-foreground">{currency}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Row 3: Charts + top farmers ── */}
+      <div className="grid gap-4 md:grid-cols-3 mb-4">
+        <Card className="md:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">الحليب المستلم — آخر 6 أشهر (لتر)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48" dir="ltr">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="litersFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                <AreaChart data={trendData} margin={{ top:4, right:8, left:-20, bottom:0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12 }} reversed />
-                  <YAxis tick={{ fontSize: 12 }} width={48} />
-                  <Tooltip
-                    formatter={(value: number) => [`${value.toLocaleString()} لتر`, 'الكمية']}
-                    labelFormatter={(label) => `شهر ${label}`}
-                    contentStyle={{ direction: 'rtl', fontSize: 13 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="liters"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fill="url(#litersFill)"
-                  />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} reversed />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: number) => [`${v.toLocaleString()} لتر`, 'الكمية']} labelFormatter={l=>`شهر ${l}`} contentStyle={{direction:'rtl',fontSize:12}} />
+                  <Area type="monotone" dataKey="liters" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -252,38 +265,23 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              أفضل 5 فلاحين هذا الشهر
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <TrendingUp className="h-4 w-4 text-amber-500" /> أعلى فلاحين هذا الشهر
             </CardTitle>
           </CardHeader>
           <CardContent>
             {topFarmers.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                لا توجد بيانات استلام لهذا الشهر بعد.
-              </p>
+              <p className="text-center text-muted-foreground text-sm py-4">لا توجد بيانات</p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-2">
                 {topFarmers.map((f, i) => (
-                  <li key={f.name} className="flex items-center gap-3">
-                    <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        i === 0
-                          ? 'bg-amber-500/15 text-amber-600'
-                          : i === 1
-                            ? 'bg-slate-400/15 text-slate-500'
-                            : i === 2
-                              ? 'bg-orange-500/15 text-orange-600'
-                              : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
+                  <li key={f.name} className="flex items-center gap-2">
+                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-400 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-amber-700/30 text-amber-800' : 'bg-muted text-muted-foreground'}`}>
                       {i + 1}
                     </span>
                     <span className="flex-1 truncate text-sm font-medium">{f.name}</span>
-                    <span className="font-mono text-sm text-muted-foreground" dir="ltr">
-                      {f.liters.toLocaleString()} ل
-                    </span>
+                    <span className="font-mono text-sm text-muted-foreground" dir="ltr">{f.liters.toLocaleString()} ل</span>
                   </li>
                 ))}
               </ul>
@@ -292,31 +290,26 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-base">المداخيل مقابل المصاريف — آخر 6 أشهر</CardTitle>
+      {/* ── Row 4: Income vs Expense chart ── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">المداخيل مقابل المصاريف — آخر 6 أشهر</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-64" dir="ltr">
+          <div className="h-56" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trendData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+              <BarChart data={trendData} margin={{ top:4, right:8, left:-16, bottom:0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} reversed />
-                <YAxis tick={{ fontSize: 12 }} width={48} />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} reversed />
+                <YAxis tick={{ fontSize: 11 }} width={48} />
                 <Tooltip
-                  formatter={(value: number, name) => [
-                    `${value.toLocaleString()} ${currency}`,
-                    name === 'income' ? 'المداخيل' : 'المصاريف',
-                  ]}
-                  labelFormatter={(label) => `شهر ${label}`}
-                  contentStyle={{ direction: 'rtl', fontSize: 13 }}
+                  formatter={(v: number, name) => [`${v.toLocaleString()} ${currency}`, name === 'income' ? 'المداخيل' : 'المصاريف']}
+                  labelFormatter={l=>`شهر ${l}`}
+                  contentStyle={{ direction: 'rtl', fontSize: 12 }}
                 />
-                <Legend
-                  formatter={(value) => (value === 'income' ? 'المداخيل' : 'المصاريف')}
-                  wrapperStyle={{ direction: 'rtl', fontSize: 12 }}
-                />
-                <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Legend formatter={v => v === 'income' ? 'المداخيل' : 'المصاريف'} wrapperStyle={{ direction: 'rtl', fontSize: 12 }} />
+                <Bar dataKey="income" fill="#10b981" radius={[4,4,0,0]} />
+                <Bar dataKey="expense" fill="#ef4444" radius={[4,4,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
