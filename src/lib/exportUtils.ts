@@ -1,16 +1,6 @@
-// jsPDF/xlsx/file-saver are only needed on the reports page and pull in a
-// couple hundred KB together — they are dynamically imported here so the
-// app shell (loaded on every page, including sign-in) stays small and the
-// PWA precache doesn't balloon.
+export interface ExportColumn { header: string; key: string; }
 
-export interface ExportColumn {
-  header: string;
-  key: string;
-}
-
-export function printPage() {
-  window.print();
-}
+export function printPage() { window.print(); }
 
 export async function exportToPdf(
   title: string,
@@ -62,12 +52,158 @@ export function shareOnWhatsApp(message: string, phone?: string) {
   window.open(buildWhatsAppShareUrl(message, phone), '_blank');
 }
 
-// ── Professional French invoice for a farmer (facture / relevé de compte) ──
-// Le reste de l'application est en arabe, mais la facture imprimée est en
-// français à la demande explicite du client, et sans bloc de signature.
+// ─── Shared helpers ──────────────────────────────────────────────
+
+const MONTH_NAMES_AR = [
+  'يناير','فبراير','مارس','أبريل','ماي','يونيو',
+  'يوليوز','غشت','شتنبر','أكتوبر','نونبر','دجنبر',
+];
+const MONTH_NAMES_FR = [
+  'Janvier','Février','Mars','Avril','Mai','Juin',
+  'Juillet','Août','Septembre','Octobre','Novembre','Décembre',
+];
+
+function monthAr(month: string) {
+  const [y, m] = month.split('-');
+  return `${MONTH_NAMES_AR[parseInt(m) - 1]} ${y}`;
+}
+function monthFr(month: string) {
+  const [y, m] = month.split('-');
+  return `${MONTH_NAMES_FR[parseInt(m) - 1]} ${y}`;
+}
+function currencyLabel(currency: string) {
+  return currency === 'MAD' || currency === 'درهم' ? 'DH' : currency;
+}
+function fmt(n: number, dec = 2) {
+  return n.toLocaleString('fr-MA', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+async function urlToBase64(url: string): Promise<string> {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch { return ''; }
+}
+
+/** Shared invoice CSS */
+const INVOICE_CSS = `
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px;
+    color: #111; background: #fff; padding: 20px;
+  }
+  /* ── Header ── */
+  .inv-header {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 3px solid #15803d; padding-bottom: 12px; margin-bottom: 14px;
+  }
+  .logo { width: 68px; height: 68px; object-fit: contain; border-radius: 8px; }
+  .coop-block { text-align: right; }
+  .coop-name { font-size: 20px; font-weight: 800; color: #15803d; direction: rtl; }
+  .coop-name-fr { font-size: 11px; color: #555; direction: ltr; margin-top: 1px; }
+  .coop-meta { font-size: 10.5px; color: #555; margin-top: 4px; direction: rtl; }
+  .inv-num-block { text-align: center; }
+  .inv-label { font-size: 11px; color: #888; }
+  .inv-num { font-size: 22px; font-weight: 800; color: #15803d; direction: ltr; }
+  .inv-date { font-size: 10px; color: #777; margin-top: 3px; }
+  /* ── Info row ── */
+  .info-row {
+    display: flex; gap: 12px; margin-bottom: 14px;
+  }
+  .info-box {
+    flex: 1; border: 1px solid #d1fae5; border-radius: 8px;
+    padding: 10px 14px; background: #f0fdf4;
+  }
+  .info-box.right-box { text-align: right; direction: rtl; }
+  .info-box-title {
+    font-size: 10px; font-weight: 700; color: #15803d;
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+    border-bottom: 1px solid #bbf7d0; padding-bottom: 4px;
+  }
+  .info-row-item { margin-bottom: 3px; font-size: 11.5px; color: #333; }
+  .info-row-item strong { color: #111; }
+  /* ── Period badge ── */
+  .period-badge {
+    display: inline-block; background: #15803d; color: white;
+    font-size: 11px; font-weight: 700; border-radius: 20px;
+    padding: 3px 14px; margin-bottom: 14px;
+  }
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 11.5px; }
+  thead tr { background: #15803d; color: #fff; }
+  thead th { padding: 8px 6px; text-align: center; font-weight: 700; }
+  tbody tr:nth-child(even) { background: #f9fafb; }
+  tbody td { padding: 7px 6px; text-align: center; border-bottom: 1px solid #e5e7eb; }
+  td.num { font-family: 'Courier New', monospace; }
+  td.net { font-weight: 700; color: #15803d; font-family: 'Courier New', monospace; }
+  td.deduct { color: #dc2626; font-family: 'Courier New', monospace; }
+  tr.total-row { background: #dcfce7 !important; font-weight: 700; border-top: 2px solid #15803d; }
+  tr.total-row td { padding: 9px 6px; }
+  /* ── Net summary ── */
+  .net-summary {
+    border: 2px solid #15803d; border-radius: 10px;
+    background: #f0fdf4; padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .net-detail { font-size: 11px; color: #555; line-height: 1.8; direction: rtl; text-align: right; }
+  .net-main { text-align: center; }
+  .net-label-ar { font-size: 13px; font-weight: 700; color: #15803d; direction: rtl; }
+  .net-label-fr { font-size: 10px; color: #777; }
+  .net-amount { font-size: 30px; font-weight: 900; color: #15803d; direction: ltr; margin-top: 4px; }
+  /* ── Status badge ── */
+  .status-badge {
+    display: inline-block; border-radius: 20px; padding: 4px 16px;
+    font-size: 12px; font-weight: 700; margin-bottom: 14px;
+  }
+  .status-paid { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .status-pending { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  /* ── Signatures ── */
+  .sig-row {
+    display: flex; gap: 20px; margin-top: 10px; margin-bottom: 14px;
+  }
+  .sig-box {
+    flex: 1; border: 1px dashed #d1d5db; border-radius: 8px;
+    padding: 10px 14px; min-height: 70px; position: relative;
+    direction: rtl; text-align: right;
+  }
+  .sig-title { font-size: 10px; font-weight: 700; color: #555; margin-bottom: 4px; }
+  /* ── Footer ── */
+  .footer {
+    text-align: center; font-size: 9.5px; color: #aaa;
+    border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 4px;
+  }
+  @media print {
+    body { padding: 6px; }
+    @page { margin: 1cm; size: A4; }
+  }
+`;
+
+function openInvoiceWindow(html: string, title: string) {
+  const win = window.open('', '_blank', 'width=920,height=780');
+  if (!win) {
+    alert('⚠️ تم حجب النافذة المنبثقة.\nيرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم المحاولة مجدداً.');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  const printOnce = () => { if (!(win as any).__p) { (win as any).__p = true; win.print(); } };
+  win.onload = () => setTimeout(printOnce, 350);
+  setTimeout(() => { if (!win.closed) printOnce(); }, 1600);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FARMER / MEMBER INVOICE
+// ═══════════════════════════════════════════════════════════════
 
 export interface FarmerInvoiceReceipt {
-  date: string; // YYYY-MM-DD
+  date: string;
   quantityLiters: number;
   pricePerLiter?: number;
   transportCost?: number;
@@ -77,83 +213,39 @@ export interface FarmerInvoiceReceipt {
 
 export interface FarmerInvoiceData {
   farmerName: string;
-  month: string; // YYYY-MM
+  farmerPhone?: string;
+  farmerCin?: string;
+  month: string;
   receipts: FarmerInvoiceReceipt[];
   monthlyPricePerLiter: number;
   coopName: string;
+  coopPhone?: string;
+  coopAddress?: string;
   logoUrl?: string;
   currency: string;
-}
-
-const MONTH_NAMES_FR = [
-  'Janvier',
-  'Février',
-  'Mars',
-  'Avril',
-  'Mai',
-  'Juin',
-  'Juillet',
-  'Août',
-  'Septembre',
-  'Octobre',
-  'Novembre',
-  'Décembre',
-];
-
-/** Currency codes/labels stored in Settings mapped to a short French symbol for print. */
-function currencyLabelFr(currency: string) {
-  if (currency === 'MAD' || currency === 'درهم') return 'DH';
-  return currency;
-}
-
-function fmt(n: number, dec = 2) {
-  return n.toLocaleString('fr-MA', { minimumFractionDigits: dec, maximumFractionDigits: dec });
-}
-
-/** Convert a remote image URL to a base64 data-URL so it can be embedded
- *  in a detached print window without relying on cross-origin network timing. */
-async function urlToBase64(url: string): Promise<string> {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    // If fetch fails (e.g. CORS), return empty string → logo hidden gracefully
-    return '';
-  }
+  paid?: boolean;
+  invoiceSeq?: number;
 }
 
 export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void> {
-  const { farmerName, month, receipts, monthlyPricePerLiter, coopName, logoUrl, currency } = data;
+  const {
+    farmerName, farmerPhone, farmerCin, month, receipts,
+    monthlyPricePerLiter, coopName, coopPhone, coopAddress,
+    logoUrl, currency, paid, invoiceSeq,
+  } = data;
 
-  // ── Pre-load logo as base64 so it renders correctly in the print window ──
-  let logoBase64 = '';
-  if (logoUrl) {
-    logoBase64 = await urlToBase64(logoUrl);
-  }
+  const logoBase64 = logoUrl ? await urlToBase64(logoUrl) : '';
+  const curr = currencyLabel(currency);
+  const [year, monthNum] = month.split('-');
+  const seq = invoiceSeq ?? parseInt(monthNum);
+  const invoiceNo = `FA-${year}-${monthNum}-${String(seq).padStart(3,'0')}`;
 
   const sorted = [...receipts].sort((a, b) => a.date.localeCompare(b.date));
   const rows = sorted.map((r) => {
     const price = r.pricePerLiter ?? monthlyPricePerLiter;
     const gross = r.quantityLiters * price;
     const transport = r.transportCost ?? 0;
-    const net = gross - transport;
-    const day = r.date.split('-')[2];
-    return {
-      day,
-      qty: r.quantityLiters,
-      price,
-      gross,
-      transport,
-      net,
-      fat: r.fat,
-      notes: r.notes || '',
-    };
+    return { day: r.date.split('-')[2], qty: r.quantityLiters, price, gross, transport, net: gross - transport, fat: r.fat, notes: r.notes || '' };
   });
 
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
@@ -161,16 +253,12 @@ export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void>
   const totalTransport = rows.reduce((s, r) => s + r.transport, 0);
   const totalNet = rows.reduce((s, r) => s + r.net, 0);
 
-  const [year, monthNum] = month.split('-');
-  const monthLabel = `${MONTH_NAMES_FR[parseInt(monthNum) - 1]} ${year}`;
-  const curr = currencyLabelFr(currency);
+  const printedOn = new Date().toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' });
+  const printedOnFr = new Date().toLocaleDateString('fr-MA', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const rowsHtml =
-    rows.length === 0
-      ? `<tr><td colspan="7" style="text-align:center;padding:20px;color:#888;">Aucune réception enregistrée ce mois-ci</td></tr>`
-      : rows
-          .map(
-            (r) => `
+  const rowsHtml = rows.length === 0
+    ? `<tr><td colspan="6" style="text-align:center;padding:18px;color:#888;">لا توجد عمليات تسليم مسجلة هذا الشهر</td></tr>`
+    : rows.map(r => `
         <tr>
           <td>${r.day}</td>
           <td class="num">${fmt(r.qty, 1)}</td>
@@ -178,126 +266,303 @@ export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void>
           <td class="num">${fmt(r.gross)}</td>
           <td class="num deduct">${r.transport > 0 ? fmt(r.transport) : '—'}</td>
           <td class="num net">${fmt(r.net)}</td>
-          <td class="note">${r.fat !== undefined ? r.fat + '%' : ''} ${r.notes}</td>
-        </tr>
-      `,
-          )
-          .join('');
+        </tr>`).join('');
 
-  // Use base64 logo so the image is embedded and loads instantly
   const logoHtml = logoBase64 ? `<img src="${logoBase64}" alt="logo" class="logo" />` : '';
-
-  const printedOn = new Date().toLocaleDateString('fr-MA', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const statusBadge = paid
+    ? `<span class="status-badge status-paid">✓ مدفوع — Payé</span>`
+    : `<span class="status-badge status-pending">⏳ في انتظار الأداء — En attente</span>`;
 
   const html = `<!DOCTYPE html>
-  <html dir="ltr" lang="fr">
-  <head>
-    <meta charset="UTF-8">
-    <title>Relevé de compte — ${farmerName} — ${month}</title>
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 24px; direction: ltr; }
-      .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #166534; padding-bottom: 14px; margin-bottom: 18px; }
-      .logo { width: 70px; height: 70px; object-fit: contain; border-radius: 10px; }
-      .coop-name { font-size: 24px; font-weight: bold; color: #166534; }
-      .invoice-title { font-size: 13px; color: #666; margin-top: 4px; }
-      .meta { display: flex; justify-content: space-between; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 20px; margin-bottom: 18px; }
-      .meta-item label { font-size: 11px; color: #555; display: block; margin-bottom: 3px; }
-      .meta-item span { font-size: 16px; font-weight: bold; color: #166534; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }
-      thead tr { background: #166534; color: white; }
-      thead th { padding: 9px 7px; text-align: center; font-weight: bold; }
-      tbody tr:nth-child(even) { background: #f9fafb; }
-      tbody td { padding: 8px 7px; text-align: center; border-bottom: 1px solid #e5e7eb; }
-      .num { font-family: 'Courier New', monospace; }
-      .net { font-weight: bold; color: #166534; }
-      .deduct { color: #dc2626; }
-      .note { font-size: 11px; color: #666; text-align: left; }
-      .totals-row { background: #dcfce7 !important; font-weight: bold; border-top: 2px solid #166534; }
-      .totals-row td { padding: 10px 7px; }
-      .summary { border: 2px solid #166534; border-radius: 10px; padding: 16px 24px; margin-bottom: 24px; background: #f0fdf4; text-align: center; }
-      .net-label { font-size: 13px; color: #555; margin-bottom: 6px; }
-      .net-amount { font-size: 32px; font-weight: bold; color: #166534; }
-      .footer { text-align: center; font-size: 10px; color: #aaa; margin-top: 24px; border-top: 1px solid #eee; padding-top: 10px; }
-      @media print { body { padding: 8px; } @page { margin: 1cm; size: A4; } }
-    </style>
-  </head>
-  <body>
-    <div class="header">
-      <div>
-        <div class="coop-name">${coopName}</div>
-        <div class="invoice-title">Relevé de compte — réception de lait</div>
-      </div>
-      ${logoHtml}
-    </div>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>فاتورة — ${farmerName} — ${month}</title>
+<style>${INVOICE_CSS}</style></head>
+<body>
 
-    <div class="meta">
-      <div class="meta-item"><label>Agriculteur</label><span>${farmerName}</span></div>
-      <div class="meta-item"><label>Mois</label><span>${monthLabel}</span></div>
-      <div class="meta-item"><label>Quantité totale</label><span>${fmt(totalQty, 1)} L</span></div>
-      <div class="meta-item"><label>Nombre de livraisons</label><span>${rows.length} jour(s)</span></div>
-    </div>
+<div class="inv-header">
+  <div class="inv-num-block">
+    <div class="inv-label">رقم الفاتورة / N° Facture</div>
+    <div class="inv-num">${invoiceNo}</div>
+    <div class="inv-date">طُبعت بتاريخ: ${printedOn}</div>
+    <div class="inv-date">Imprimé le ${printedOnFr}</div>
+  </div>
+  <div class="coop-block">
+    <div class="coop-name">${coopName}</div>
+    ${coopPhone ? `<div class="coop-meta">📞 ${coopPhone}</div>` : ''}
+    ${coopAddress ? `<div class="coop-meta">📍 ${coopAddress}</div>` : ''}
+  </div>
+  ${logoHtml}
+</div>
 
-    <table>
-      <thead>
+<div class="info-row">
+  <div class="info-box right-box" style="flex:1.4">
+    <div class="info-box-title">بيانات الفلاح — Agriculteur</div>
+    <div class="info-row-item"><strong>الاسم / Nom :</strong> ${farmerName}</div>
+    ${farmerCin ? `<div class="info-row-item"><strong>ب.ت.و / CIN :</strong> ${farmerCin}</div>` : ''}
+    ${farmerPhone ? `<div class="info-row-item"><strong>الهاتف / Tél :</strong> ${farmerPhone}</div>` : ''}
+  </div>
+  <div class="info-box right-box" style="flex:1">
+    <div class="info-box-title">بيانات الفاتورة — Détails</div>
+    <div class="info-row-item"><strong>الشهر / Mois :</strong> ${monthAr(month)}</div>
+    <div class="info-row-item"><strong>عدد التسليمات :</strong> ${rows.length} يوم</div>
+    <div class="info-row-item"><strong>إجمالي الكمية :</strong> ${fmt(totalQty, 1)} لتر</div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>اليوم<br><small>Jour</small></th>
+      <th>الكمية (ل)<br><small>Qté (L)</small></th>
+      <th>الثمن/ل<br><small>Prix/L</small></th>
+      <th>الإجمالي<br><small>Brut</small></th>
+      <th>اقتطاع النقل<br><small>Transport</small></th>
+      <th>الصافي<br><small>Net</small></th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rowsHtml}
+    ${rows.length > 0 ? `
+    <tr class="total-row">
+      <td>المجموع<br><small>Total</small></td>
+      <td class="num">${fmt(totalQty, 1)} ل</td>
+      <td></td>
+      <td class="num">${fmt(totalGross)} ${curr}</td>
+      <td class="num deduct">${totalTransport > 0 ? fmt(totalTransport) + ' ' + curr : '—'}</td>
+      <td class="num net">${fmt(totalNet)} ${curr}</td>
+    </tr>` : ''}
+  </tbody>
+</table>
+
+<div class="net-summary">
+  <div class="net-detail">
+    <div>الإجمالي الخام: <strong>${fmt(totalGross)} ${curr}</strong></div>
+    ${totalTransport > 0 ? `<div>اقتطاع النقل: <strong style="color:#dc2626">- ${fmt(totalTransport)} ${curr}</strong></div>` : ''}
+    <div style="margin-top:4px;border-top:1px solid #bbf7d0;padding-top:4px">
+      عدد أيام التسليم: <strong>${rows.length}</strong>
+    </div>
+  </div>
+  <div class="net-main">
+    <div class="net-label-ar">المبلغ الصافي المستحق</div>
+    <div class="net-label-fr">Montant net dû à l'agriculteur</div>
+    <div class="net-amount">${fmt(totalNet)} ${curr}</div>
+  </div>
+</div>
+
+${statusBadge}
+
+<div class="sig-row">
+  <div class="sig-box">
+    <div class="sig-title">إمضاء الفلاح / Signature agriculteur</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-title">إمضاء المسؤول / Signature responsable</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-title">الختم / Cachet</div>
+  </div>
+</div>
+
+<div class="footer">
+  ${coopName} — وثيقة مالية رسمية — Document financier officiel<br>
+  طُبعت بتاريخ ${printedOn} | Imprimé le ${printedOnFr}
+</div>
+
+</body></html>`;
+
+  openInvoiceWindow(html, `فاتورة-${farmerName}-${month}`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMPANY DELIVERY INVOICE
+// ═══════════════════════════════════════════════════════════════
+
+export interface CompanyDeliveryRow {
+  date: string;
+  quantityLiters: number;
+  pricePerLiter: number;
+  notes?: string;
+}
+
+export interface CompanyInvoiceData {
+  companyName: string;
+  month: string;
+  deliveries: CompanyDeliveryRow[];
+  coopName: string;
+  coopPhone?: string;
+  coopAddress?: string;
+  logoUrl?: string;
+  currency: string;
+  invoiceSeq?: number;
+}
+
+export async function printCompanyInvoice(data: CompanyInvoiceData): Promise<void> {
+  const { companyName, month, deliveries, coopName, coopPhone, coopAddress, logoUrl, currency, invoiceSeq } = data;
+
+  const logoBase64 = logoUrl ? await urlToBase64(logoUrl) : '';
+  const curr = currencyLabel(currency);
+  const [year, monthNum] = month.split('-');
+  const seq = invoiceSeq ?? parseInt(monthNum);
+  const invoiceNo = `LIV-${year}-${monthNum}-${String(seq).padStart(3,'0')}`;
+
+  const sorted = [...deliveries].sort((a, b) => a.date.localeCompare(b.date));
+  const rows = sorted.map(d => ({
+    day: d.date.split('-')[2],
+    qty: d.quantityLiters,
+    price: d.pricePerLiter,
+    amount: d.quantityLiters * d.pricePerLiter,
+    notes: d.notes || '',
+  }));
+
+  const totalQty = rows.reduce((s, r) => s + r.qty, 0);
+  const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
+
+  const printedOn = new Date().toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' });
+  const printedOnFr = new Date().toLocaleDateString('fr-MA', { year: 'numeric', month: 'long', day: 'numeric' });
+  const logoHtml = logoBase64 ? `<img src="${logoBase64}" alt="logo" class="logo" />` : '';
+
+  const rowsHtml = rows.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;padding:18px;color:#888;">لا توجد تسليمات مسجلة هذا الشهر</td></tr>`
+    : rows.map(r => `
         <tr>
-          <th>Jour</th><th>Quantité (L)</th><th>Prix/L</th>
-          <th>Total</th><th>Retenue transport</th><th>Net</th><th>Remarques</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rowsHtml}
-        ${
-          rows.length > 0
-            ? `<tr class="totals-row">
-          <td>Total</td>
-          <td class="num">${fmt(totalQty, 1)}</td>
-          <td></td>
-          <td class="num">${fmt(totalGross)}</td>
-          <td class="num deduct">${totalTransport > 0 ? fmt(totalTransport) : '—'}</td>
-          <td class="num net">${fmt(totalNet)}</td>
-          <td></td>
-        </tr>`
-            : ''
-        }
-      </tbody>
-    </table>
+          <td>${r.day}</td>
+          <td class="num">${fmt(r.qty, 1)}</td>
+          <td class="num">${fmt(r.price)}</td>
+          <td class="num net">${fmt(r.amount)}</td>
+          <td style="font-size:10px;color:#555">${r.notes}</td>
+        </tr>`).join('');
 
-    <div class="summary">
-      <div class="net-label">Montant net dû à l'agriculteur</div>
-      <div class="net-amount">${fmt(totalNet)} ${curr}</div>
-    </div>
+  const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>فاتورة تسليم — ${companyName} — ${month}</title>
+<style>${INVOICE_CSS}</style></head>
+<body>
 
-    <div class="footer">Imprimé le ${printedOn}</div>
-  </body>
-  </html>`;
+<div class="inv-header">
+  <div class="inv-num-block">
+    <div class="inv-label">رقم وصل التسليم / N° Bon de livraison</div>
+    <div class="inv-num">${invoiceNo}</div>
+    <div class="inv-date">طُبعت بتاريخ: ${printedOn}</div>
+    <div class="inv-date">Imprimé le ${printedOnFr}</div>
+  </div>
+  <div class="coop-block">
+    <div class="coop-name">${coopName}</div>
+    <div class="coop-name-fr">Fournisseur / المورد</div>
+    ${coopPhone ? `<div class="coop-meta">📞 ${coopPhone}</div>` : ''}
+    ${coopAddress ? `<div class="coop-meta">📍 ${coopAddress}</div>` : ''}
+  </div>
+  ${logoHtml}
+</div>
 
-  const win = window.open('', '_blank', 'width=900,height=750');
-  if (!win) {
-    alert(
-      '⚠️ تم حجب النافذة المنبثقة من طرف المتصفح.\nيرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم المحاولة مجدداً.',
-    );
-    return;
-  }
-  win.document.write(html);
-  win.document.close();
-  win.focus();
+<div class="info-row">
+  <div class="info-box right-box" style="flex:1.4">
+    <div class="info-box-title">الشركة المستلمة — Société réceptrice</div>
+    <div class="info-row-item"><strong>الاسم / Raison sociale :</strong> ${companyName}</div>
+    <div class="info-row-item"><strong>نوع العملية :</strong> تسليم حليب</div>
+  </div>
+  <div class="info-box right-box" style="flex:1">
+    <div class="info-box-title">بيانات الفاتورة — Détails</div>
+    <div class="info-row-item"><strong>الشهر / Mois :</strong> ${monthAr(month)}</div>
+    <div class="info-row-item"><strong>عدد التسليمات :</strong> ${rows.length} يوم</div>
+    <div class="info-row-item"><strong>إجمالي الكمية :</strong> ${fmt(totalQty, 1)} لتر</div>
+  </div>
+</div>
 
-  // Guard: print only once regardless of which trigger fires first
-  const printOnce = () => {
-    if (!(win as any).__printed) {
-      (win as any).__printed = true;
-      win.print();
-    }
-  };
-  // Primary: fire after document fully loads
-  win.onload = () => setTimeout(printOnce, 300);
-  // Fallback: some browsers fire onload before write() finishes
-  setTimeout(() => {
-    if (!win.closed) printOnce();
-  }, 1500);
+<table>
+  <thead>
+    <tr>
+      <th>اليوم<br><small>Jour</small></th>
+      <th>الكمية (ل)<br><small>Quantité (L)</small></th>
+      <th>الثمن/ل<br><small>Prix/L</small></th>
+      <th>المبلغ<br><small>Montant</small></th>
+      <th>ملاحظات<br><small>Remarques</small></th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rowsHtml}
+    ${rows.length > 0 ? `
+    <tr class="total-row">
+      <td>المجموع / Total</td>
+      <td class="num">${fmt(totalQty, 1)} ل</td>
+      <td class="num">${rows.length > 0 ? fmt(totalAmount / totalQty) : '—'}</td>
+      <td class="num net">${fmt(totalAmount)} ${curr}</td>
+      <td></td>
+    </tr>` : ''}
+  </tbody>
+</table>
+
+<div class="net-summary">
+  <div class="net-detail">
+    <div>إجمالي اللترات: <strong>${fmt(totalQty, 1)} لتر</strong></div>
+    <div>عدد أيام التسليم: <strong>${rows.length}</strong></div>
+    <div style="margin-top:4px">متوسط الثمن: <strong>${rows.length > 0 ? fmt(totalAmount / totalQty) : '—'} ${curr}/ل</strong></div>
+  </div>
+  <div class="net-main">
+    <div class="net-label-ar">المبلغ الإجمالي المستحق</div>
+    <div class="net-label-fr">Montant total dû à la coopérative</div>
+    <div class="net-amount">${fmt(totalAmount)} ${curr}</div>
+  </div>
+</div>
+
+<div class="sig-row">
+  <div class="sig-box">
+    <div class="sig-title">إمضاء المسؤول عن التعاونية / Signature coopérative</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-title">إمضاء مسؤول الشركة / Signature société</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-title">الختم / Cachet</div>
+  </div>
+</div>
+
+<div class="footer">
+  ${coopName} — وثيقة مالية رسمية — Document financier officiel<br>
+  طُبعت بتاريخ ${printedOn} | Imprimé le ${printedOnFr}
+</div>
+
+</body></html>`;
+
+  openInvoiceWindow(html, `فاتورة-تسليم-${companyName}-${month}`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WHATSAPP MESSAGE BUILDER — professional formatted text
+// ═══════════════════════════════════════════════════════════════
+
+export function buildFarmerWhatsAppMessage(opts: {
+  farmerName: string;
+  month: string;
+  totalLiters: number;
+  pricePerLiter: number;
+  grossAmount: number;
+  transportCost: number;
+  netAmount: number;
+  currency: string;
+  coopName: string;
+  paid: boolean;
+}) {
+  const { farmerName, month, totalLiters, pricePerLiter, grossAmount, transportCost, netAmount, currency, coopName, paid } = opts;
+  const curr = currency === 'درهم' || currency === 'MAD' ? 'درهم' : currency;
+  const [year, monthNum] = month.split('-');
+  const MONTHS = ['يناير','فبراير','مارس','أبريل','ماي','يونيو','يوليوز','غشت','شتنبر','أكتوبر','نونبر','دجنبر'];
+  const monthName = MONTHS[parseInt(monthNum) - 1];
+  const status = paid ? '✅ تم الأداء' : '⏳ في انتظار الأداء';
+
+  return [
+    `🥛 *${coopName}*`,
+    `📋 كشف حساب شهر ${monthName} ${year}`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `👤 الفلاح: *${farmerName}*`,
+    ``,
+    `📦 الكمية المسلمة: *${totalLiters.toFixed(1)} لتر*`,
+    `💰 الثمن: *${pricePerLiter.toFixed(2)} ${curr}/ل*`,
+    `🔢 الإجمالي الخام: *${grossAmount.toFixed(2)} ${curr}*`,
+    transportCost > 0 ? `🚛 اقتطاع النقل: *- ${transportCost.toFixed(2)} ${curr}*` : null,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `✨ *الصافي المستحق: ${netAmount.toFixed(2)} ${curr}*`,
+    `📌 الحالة: ${status}`,
+    ``,
+    `شكراً على ثقتكم 🙏`,
+  ].filter(l => l !== null).join('\n');
 }
