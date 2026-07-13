@@ -1,15 +1,12 @@
-name: Build & Deploy to GitHub Pages
+name: Build & Deploy to Firebase Hosting
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,18 +16,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --no-package-lock
+        run: npm ci
 
       - name: Build
-        run: npx vite build --base=/coop-bouala/
-        env:
-          NODE_ENV: production
+        run: npm run build
 
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: dist
-          force_orphan: false
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: taawoniat-halib
