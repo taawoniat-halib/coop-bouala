@@ -30,7 +30,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/', label: 'لوحة القيادة', icon: LayoutDashboard, roles: ['admin'] },
+  { href: '/', label: 'لوحة القيادة', icon: LayoutDashboard, roles: ['admin', 'accountant'] },
   { href: '/members', label: 'المنخرطون', icon: Users, roles: ['admin', 'collector'] },
   { href: '/milk', label: 'الحليب', icon: Droplets, roles: ['admin', 'collector', 'accountant'] },
   { href: '/transporters', label: 'الناقلون', icon: Truck, roles: ['admin'] },

@@ -183,7 +183,6 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>المعلومات العامة</CardTitle>
-              <CardDescription>معلومات التعاونية التي تظهر في التقارير</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">

@@ -21,7 +21,7 @@ export default function InvitationsPage() {
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [messageTemplate, setMessageTemplate] = useState(
-    `مرحباً {اسم_الفلاح}،\nتدعوكم ${settings?.coopName || 'تعاونية كوب بوعلا'} للتواصل معنا.\nشكراً لتعاونكم.`,
+    `مرحباً {اسم_المنخرط}،\nتدعوكم ${settings?.coopName || 'تعاونية كوب بوعلا'} للتواصل معنا.\nشكراً لتعاونكم.`,
   );
 
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
@@ -79,7 +79,7 @@ export default function InvitationsPage() {
     }
     let sent = 0;
     for (const member of withPhone) {
-      const msg = messageTemplate.replace('{اسم_الفلاح}', member.fullName);
+      const msg = messageTemplate.replace('{اسم_المنخرط}', member.fullName);
       shareOnWhatsApp(msg, member.phone);
       sent++;
     }
@@ -96,7 +96,7 @@ export default function InvitationsPage() {
       });
       return;
     }
-    const msg = messageTemplate.replace('{اسم_الفلاح}', member.fullName);
+    const msg = messageTemplate.replace('{اسم_المنخرط}', member.fullName);
     shareOnWhatsApp(msg, member.phone);
   };
 
@@ -260,9 +260,6 @@ export default function InvitationsPage() {
                 )}
               </Button>
 
-              <p className="text-xs text-muted-foreground text-center">
-                سيُفتح واتساب لكل منخرط بشكل منفصل
-              </p>
             </CardContent>
           </Card>
         </div>

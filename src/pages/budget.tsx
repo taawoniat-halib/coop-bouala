@@ -22,7 +22,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { monthKey } from '@/lib/calculations';
 
@@ -32,7 +31,6 @@ export default function Budget() {
   const { settings } = useSettings();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState('transactions');
   const [monthFilter, setMonthFilter] = useState(monthKey(format(new Date(), 'yyyy-MM-dd')));
   const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
@@ -168,11 +166,7 @@ export default function Budget() {
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-          <TabsList>
-            <TabsTrigger value="transactions">سجل العمليات</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <h3 className="text-base font-semibold">سجل العمليات</h3>
 
         <div className="flex gap-2">
           <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>

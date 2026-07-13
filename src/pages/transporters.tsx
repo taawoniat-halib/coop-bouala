@@ -128,7 +128,7 @@ export default function Transporters() {
       toast({
         variant: 'destructive',
         title: 'لا يمكن الحذف',
-        description: `هذا الناقل مرتبط بـ ${linked} فلاح. يرجى نقل الفلاحين إلى ناقل آخر أولاً.`,
+        description: `هذا الناقل مرتبط بـ ${linked} منخرط. يرجى نقل المنخرطين إلى ناقل آخر أولاً.`,
       });
       return;
     }
@@ -270,7 +270,7 @@ export default function Transporters() {
                 <TableHead>العربة</TableHead>
                 <TableHead>الهاتف</TableHead>
                 <TableHead>تكلفة النقل / لتر</TableHead>
-                <TableHead>الفلاحون المرتبطون</TableHead>
+                <TableHead>المنخرطون المرتبطون</TableHead>
                 <TableHead>الحالة</TableHead>
                 <TableHead className="text-left">إجراءات</TableHead>
               </TableRow>
@@ -307,7 +307,7 @@ export default function Transporters() {
                             variant="outline"
                             className="bg-blue-500/10 text-blue-600 border-blue-500/20"
                           >
-                            {linked} فلاح
+                            {linked} منخرط
                           </Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
