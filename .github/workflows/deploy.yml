@@ -29,7 +29,7 @@ jobs:
             # still return exit code 0 while leaving node_modules incomplete
             # (missing devDependency type packages), so verify the install is
             # actually complete instead of trusting the exit code alone.
-            if [ $ci_status -eq 0 ] && [ -d node_modules/@types/node ] && [ -d node_modules/vite ]; then
+            if [ $ci_status -eq 0 ] && [ -s node_modules/@types/node/index.d.ts ] && [ -s node_modules/vite/client.d.ts ]; then
               success=1
               break
             fi
