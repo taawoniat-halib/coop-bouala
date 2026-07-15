@@ -633,10 +633,14 @@ export default function MonthlyReport() {
     );
   }
   function handleFinancialWhatsApp() {
+    // FIX: لا نضيف currency هنا لأن financialRowsData() تحتوي بالفعل على الوحدات
     const lines = [
-      `*الملخص المالي الشهري — ${monthLabelAr(monthFilter)}*`,
+      `🥛 *الملخص المالي الشهري — ${monthLabelAr(monthFilter)}*`,
+      `*${settings?.coopName || 'تعاونية كوب بوعلا'}*`,
+      '━━━━━━━━━━━━━━━━━━━━',
+      ...financialRowsData().map((r) => `• ${r.label}: *${r.value}*`),
       '',
-      ...financialRowsData().map((r) => `${r.label}: ${r.value} ${currency}`),
+      'شكراً 🙏',
     ];
     shareOnWhatsApp(lines.join('\n'));
   }
@@ -704,10 +708,7 @@ export default function MonthlyReport() {
       {/* ── Export buttons ── */}
       <div className="flex flex-wrap gap-2 mb-6">
         <Button onClick={handlePdf} className="gap-2 bg-emerald-700 hover:bg-emerald-800">
-          <FileText className="h-4 w-4" /> تصدير PDF
-        </Button>
-        <Button variant="outline" onClick={handlePdf} className="gap-2">
-          <Printer className="h-4 w-4" /> طباعة
+          <FileText className="h-4 w-4" /> تصدير PDF وطباعة
         </Button>
         <Button variant="outline" onClick={handleExcel} className="gap-2">
           <FileSpreadsheet className="h-4 w-4" /> تصدير Excel

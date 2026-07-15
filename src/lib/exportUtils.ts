@@ -255,13 +255,15 @@ export interface FarmerInvoiceData {
   currency: string;
   paid?: boolean;
   invoiceSeq?: number;
+  /** الديون المخصومة من صافي هذا الشهر */
+  debt?: number;
 }
 
 export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void> {
   const {
     farmerName, farmerPhone, farmerCin, month, receipts,
     monthlyPricePerLiter, coopName, coopPhone, coopAddress,
-    logoUrl, currency, paid, invoiceSeq,
+    logoUrl, currency, paid, invoiceSeq, debt = 0,
   } = data;
 
   const logoBase64 = logoUrl ? await urlToBase64(logoUrl) : '';
@@ -281,7 +283,9 @@ export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void>
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
   const totalGross = rows.reduce((s, r) => s + r.gross, 0);
   const totalTransport = rows.reduce((s, r) => s + r.transport, 0);
-  const totalNet = rows.reduce((s, r) => s + r.net, 0);
+  // FIX: خصم الديون من الصافي النهائي
+  const totalNetBeforeDebt = rows.reduce((s, r) => s + r.net, 0);
+  const totalNet = totalNetBeforeDebt - debt;
 
   const printedOn = new Date().toLocaleDateString('ar-MA-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' });
   const printedOnFr = new Date().toLocaleDateString('fr-MA', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -359,8 +363,21 @@ export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void>
       <td></td>
       <td class="num">${fmt(totalGross)} ${curr}</td>
       <td class="num deduct">${totalTransport > 0 ? fmt(totalTransport) + ' ' + curr : '—'}</td>
-      <td class="num net">${fmt(totalNet)} ${curr}</td>
-    </tr>` : ''}
+      <td class="num net">${fmt(totalNetBeforeDebt)} ${curr}</td>
+    </tr>
+    ${debt > 0 ? `
+    <tr style="background:#fff7ed;">
+      <td colspan="5" style="text-align:right;padding:6px 8px;color:#b45309;font-size:11px;">
+        <strong>خصم الديون المستحقة / Déduction dettes :</strong>
+      </td>
+      <td class="num deduct">- ${fmt(debt)} ${curr}</td>
+    </tr>
+    <tr style="background:#dcfce7;font-weight:800;">
+      <td colspan="5" style="text-align:right;padding:7px 8px;color:#15803d;">
+        <strong>الصافي بعد خصم الديون / Net après déduction :</strong>
+      </td>
+      <td class="num net" style="font-size:13px;">${fmt(totalNet)} ${curr}</td>
+    </tr>` : ''}` : ''}
   </tbody>
 </table>
 
@@ -368,6 +385,7 @@ export async function printFarmerInvoice(data: FarmerInvoiceData): Promise<void>
   <div class="net-detail">
     <div>الإجمالي الخام: <strong>${fmt(totalGross)} ${curr}</strong></div>
     ${totalTransport > 0 ? `<div>اقتطاع النقل: <strong style="color:#dc2626">- ${fmt(totalTransport)} ${curr}</strong></div>` : ''}
+    ${debt > 0 ? `<div>الديون المخصومة: <strong style="color:#b45309">- ${fmt(debt)} ${curr}</strong></div>` : ''}
     <div style="margin-top:4px;border-top:1px solid #bbf7d0;padding-top:4px">
       عدد أيام التسليم: <strong>${rows.length}</strong>
     </div>

@@ -46,7 +46,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Dialog,
@@ -153,14 +153,17 @@ export default function Reports() {
       (s, r) => s + r.quantityLiters * (r.pricePerLiter ?? monthPrice),
       0,
     );
-    const netAmount = grossAmount - transportCost;
+    // FIX: خصم الديون من الصافي (متسق مع computeMemberMonthlyStatements)
+    const debt = member.debt ?? 0;
+    const netAmount = grossAmount - transportCost - debt;
     const purchaseValue = totalLiters * milkPurchasePrice;
     const sellValue = totalLiters * milkSellPrice;
-    const profit = sellValue - purchaseValue - transportCost;
+    const profit = sellValue - purchaseValue - transportCost - debt;
     return {
       member,
       totalLiters,
       transportCost,
+      debt,
       grossAmount,
       netAmount,
       purchaseValue,
@@ -192,8 +195,8 @@ export default function Reports() {
           memberId,
           month: monthFilter,
           paid: !getInvoicePaid(memberId),
-          paidAt: !getInvoicePaid(memberId) ? Date.now() : null,
-          createdAt: Date.now(),
+          paidAt: !getInvoicePaid(memberId) ? serverTimestamp() : null,
+          createdAt: serverTimestamp(),
         },
         { merge: true },
       );
@@ -221,6 +224,7 @@ export default function Reports() {
       currency,
       paid: getInvoicePaid(st.memberId),
       invoiceSeq: memberStatements.findIndex(s => s.memberId === st.memberId) + 1,
+      debt: member?.debt ?? 0,
     });
   };
 
@@ -248,6 +252,7 @@ export default function Reports() {
         currency,
         paid: st ? getInvoicePaid(memberId) : false,
         invoiceSeq: seq,
+        debt: member?.debt ?? 0,
       });
     } finally {
       setPrintingMemberId(null);
@@ -276,7 +281,8 @@ export default function Reports() {
     if (!farmerReport) return;
     const member = farmerReport.member;
     const phone = member.phone || settings?.phone;
-    const message = `مرحباً ${member.fullName}،\nكشف حساب — ${monthLabel(monthFilter)} — ${settings?.coopName || 'التعاونية'}:\n• مجموع اللترات: ${farmerReport.totalLiters.toFixed(1)} لتر\n• مبلغ النقل المخصوم: ${farmerReport.transportCost.toFixed(2)} ${currency}\n• الصافي الإجمالي: ${farmerReport.netAmount.toFixed(2)} ${currency}\n• قيمة شراء الحليب: ${farmerReport.purchaseValue.toFixed(2)} ${currency}\n• قيمة بيع الحليب: ${farmerReport.sellValue.toFixed(2)} ${currency}\nشكراً.`;
+    const debtLine = farmerReport.debt > 0 ? `\n• الديون المخصومة: ${farmerReport.debt.toFixed(2)} ${currency}` : '';
+    const message = `🥛 *${settings?.coopName || 'التعاونية'}*\n📋 كشف حساب — ${monthLabel(monthFilter)}\n━━━━━━━━━━━━━━━━━━━━\n👤 المنخرط: *${member.fullName}*\n\n• مجموع اللترات: *${farmerReport.totalLiters.toFixed(1)} لتر*\n• مبلغ النقل المخصوم: ${farmerReport.transportCost.toFixed(2)} ${currency}${debtLine}\n━━━━━━━━━━━━━━━━━━━━\n✨ *الصافي المستحق: ${farmerReport.netAmount.toFixed(2)} ${currency}*\n\nشكراً على ثقتكم 🙏`;
     shareOnWhatsApp(message, phone);
   };
 
@@ -357,16 +363,12 @@ export default function Reports() {
         { label: 'اسم المركز', value: settings?.coopName || '' },
         { label: 'الشهر', value: monthLabel(monthFilter) },
         { label: 'مجموع اللترات', value: `${farmerReport.totalLiters.toFixed(1)} ل` },
-        {
-          label: 'مبلغ النقل المخصوم',
-          value: `${farmerReport.transportCost.toFixed(2)} ${currency}`,
-        },
-        { label: 'الصافي الإجمالي', value: `${farmerReport.netAmount.toFixed(2)} ${currency}` },
-        {
-          label: 'قيمة شراء الحليب',
-          value: `${farmerReport.purchaseValue.toFixed(2)} ${currency}`,
-        },
+        { label: 'مبلغ النقل المخصوم', value: `${farmerReport.transportCost.toFixed(2)} ${currency}` },
+        ...(farmerReport.debt > 0 ? [{ label: 'الديون المخصومة', value: `${farmerReport.debt.toFixed(2)} ${currency}` }] : []),
+        { label: 'الصافي المستحق', value: `${farmerReport.netAmount.toFixed(2)} ${currency}` },
+        { label: 'قيمة شراء الحليب', value: `${farmerReport.purchaseValue.toFixed(2)} ${currency}` },
         { label: 'قيمة بيع الحليب', value: `${farmerReport.sellValue.toFixed(2)} ${currency}` },
+        { label: 'الربح المتوقع للتعاونية', value: `${farmerReport.profit.toFixed(2)} ${currency}` },
       ],
       `تقرير-${farmerReport.member.fullName}-${monthFilter}`,
     );
@@ -531,14 +533,13 @@ export default function Reports() {
                       <TableHead>اقتطاع النقل</TableHead>
                       <TableHead>الصافي</TableHead>
                       <TableHead>الحالة</TableHead>
-                      <TableHead></TableHead>
-                    <TableHead></TableHead>
+                      <TableHead className="text-center">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {memberStatements.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                           لا توجد بيانات لهذا الشهر
                         </TableCell>
                       </TableRow>
@@ -674,7 +675,7 @@ export default function Reports() {
                           })}{' '}
                           {currency}
                         </TableCell>
-                        <TableCell colSpan={2}>
+                        <TableCell>
                           <span className="text-xs text-muted-foreground font-normal">
                             {memberStatements.filter((st) => getInvoicePaid(st.memberId)).length}/
                             {memberStatements.length} مدفوع
@@ -847,52 +848,23 @@ export default function Reports() {
                   <div className="space-y-4 pt-2">
                     {/* Summary card */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {[
-                        {
-                          label: 'اسم المنخرط',
-                          value: farmerReport.member.fullName,
-                          highlight: false,
-                        },
-                        { label: 'اسم المركز', value: settings?.coopName || '—', highlight: false },
-                        {
-                          label: 'مجموع اللترات',
-                          value: `${farmerReport.totalLiters.toFixed(1)} ل`,
-                          highlight: true,
-                        },
-                        {
-                          label: 'مبلغ النقل المخصوم',
-                          value: `${farmerReport.transportCost.toFixed(2)} ${currency}`,
-                          highlight: false,
-                        },
-                        {
-                          label: 'الصافي الإجمالي',
-                          value: `${farmerReport.netAmount.toFixed(2)} ${currency}`,
-                          highlight: true,
-                        },
-                        {
-                          label: 'قيمة شراء الحليب',
-                          value: `${farmerReport.purchaseValue.toFixed(2)} ${currency}`,
-                          highlight: false,
-                        },
-                        {
-                          label: 'قيمة بيع الحليب',
-                          value: `${farmerReport.sellValue.toFixed(2)} ${currency}`,
-                          highlight: false,
-                        },
-                        {
-                          label: 'الربح المتوقع',
-                          value: `${farmerReport.profit.toFixed(2)} ${currency}`,
-                          highlight: false,
-                        },
-                      ].map((item) => (
+                      {([
+                        { label: 'اسم المنخرط', value: farmerReport.member.fullName, highlight: false, extra: '' },
+                        { label: 'اسم المركز', value: settings?.coopName || '—', highlight: false, extra: '' },
+                        { label: 'مجموع اللترات', value: `${farmerReport.totalLiters.toFixed(1)} ل`, highlight: true, extra: '' },
+                        { label: 'مبلغ النقل المخصوم', value: `${farmerReport.transportCost.toFixed(2)} ${currency}`, highlight: false, extra: 'text-destructive' },
+                        ...(farmerReport.debt > 0 ? [{ label: 'الديون المخصومة', value: `${farmerReport.debt.toFixed(2)} ${currency}`, highlight: false, extra: 'text-orange-600' }] : []),
+                        { label: 'الصافي المستحق', value: `${farmerReport.netAmount.toFixed(2)} ${currency}`, highlight: true, extra: '' },
+                        { label: 'قيمة شراء الحليب', value: `${farmerReport.purchaseValue.toFixed(2)} ${currency}`, highlight: false, extra: '' },
+                        { label: 'قيمة بيع الحليب', value: `${farmerReport.sellValue.toFixed(2)} ${currency}`, highlight: false, extra: '' },
+                        { label: 'الربح المتوقع للتعاونية', value: `${farmerReport.profit.toFixed(2)} ${currency}`, highlight: false, extra: farmerReport.profit >= 0 ? 'text-emerald-600' : 'text-destructive' },
+                      ] as { label: string; value: string; highlight: boolean; extra: string }[]).map((item) => (
                         <div
                           key={item.label}
                           className={`rounded-lg border p-3 ${item.highlight ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/20'}`}
                         >
                           <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-                          <p
-                            className={`font-bold text-sm font-mono ${item.highlight ? 'text-primary' : ''}`}
-                          >
+                          <p className={`font-bold text-sm font-mono ${item.highlight ? 'text-primary' : item.extra}`}>
                             {item.value}
                           </p>
                         </div>
