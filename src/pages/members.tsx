@@ -34,6 +34,7 @@ import {
 import type { Member } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { adminCreateUser } from '@/lib/adminCreateUser';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function Members() {
   const { data: members, loading, add, update, remove } = useMembers();
@@ -42,8 +43,10 @@ export default function Members() {
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
   const { toast } = useToast();
   const isAdmin = appUser?.role === 'admin';
+  const deleteCandidate = members.find((m) => m.id === deleteCandidateId);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -148,19 +151,20 @@ export default function Members() {
         toast({ title: 'تمت الإضافة', description: 'تمت إضافة المنخرط بنجاح.' });
       }
       setIsDialogOpen(false);
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا المنخرط؟')) {
-      try {
-        await remove(id);
-        toast({ title: 'تم الحذف', description: 'تم حذف المنخرط بنجاح.' });
-      } catch (err: any) {
-        toast({ variant: 'destructive', title: 'خطأ', description: err.message });
-      }
+  const handleDeleteConfirmed = async () => {
+    if (!deleteCandidateId) return;
+    try {
+      await remove(deleteCandidateId);
+      toast({ title: 'تم الحذف', description: 'تم حذف المنخرط بنجاح.' });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
+    } finally {
+      setDeleteCandidateId(null);
     }
   };
 
@@ -416,7 +420,7 @@ export default function Members() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDelete(member.id)}
+                            onClick={() => setDeleteCandidateId(member.id)}
                             className="h-8 w-8 hover:bg-destructive/10"
                             title="حذف"
                           >
@@ -432,6 +436,16 @@ export default function Members() {
           </Table>
         </div>
       </div>
+
+      {/* ── Confirm Delete Dialog ── */}
+      <ConfirmDialog
+        open={!!deleteCandidateId}
+        title="حذف المنخرط"
+        description={`هل أنت متأكد من حذف "${deleteCandidate?.fullName ?? ''}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmLabel="حذف"
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setDeleteCandidateId(null)}
+      />
     </Layout>
   );
 }

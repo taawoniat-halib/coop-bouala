@@ -6,6 +6,7 @@ import { adminCreateUser } from '@/lib/adminCreateUser';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useState, useRef, useEffect } from 'react';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -62,6 +63,13 @@ export default function SettingsPage() {
   const [recordType, setRecordType] = useState<'deliveries' | 'invoices'>('deliveries');
   const [recordMonth, setRecordMonth] = useState(monthKey(new Date().toISOString().slice(0, 10)));
 
+  // ── Confirm dialog state ──
+  type PendingDelete =
+    | { type: 'delivery'; id: string; label: string }
+    | { type: 'invoice'; id: string; label: string }
+    | { type: 'user'; id: string; label: string };
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+
   const memberName = (id: string) => members.find((m) => m.id === id)?.fullName || 'غير معروف';
 
   const filteredDeliveries = deliveries
@@ -72,23 +80,23 @@ export default function SettingsPage() {
     .filter((inv) => inv.month === recordMonth)
     .sort((a, b) => memberName(a.memberId).localeCompare(memberName(b.memberId), 'ar'));
 
-  const handleDeleteDelivery = async (id: string, companyName: string) => {
-    if (!confirm(`هل أنت متأكد من حذف تسليم "${companyName}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
     try {
-      await removeDelivery(id);
-      toast({ title: 'تم الحذف', description: 'تم حذف التسليم بنجاح.' });
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
-    }
-  };
-
-  const handleDeleteInvoice = async (id: string, name: string) => {
-    if (!confirm(`هل أنت متأكد من حذف فاتورة "${name}"؟ سيتم فقدان حالة الدفع لهذا الشهر.`)) return;
-    try {
-      await removeInvoice(id);
-      toast({ title: 'تم الحذف', description: 'تم حذف الفاتورة بنجاح.' });
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+      if (pendingDelete.type === 'delivery') {
+        await removeDelivery(pendingDelete.id);
+        toast({ title: 'تم الحذف', description: 'تم حذف التسليم بنجاح.' });
+      } else if (pendingDelete.type === 'invoice') {
+        await removeInvoice(pendingDelete.id);
+        toast({ title: 'تم الحذف', description: 'تم حذف الفاتورة بنجاح.' });
+      } else if (pendingDelete.type === 'user') {
+        await removeUser(pendingDelete.id);
+        toast({ title: 'تم الحذف', description: 'تم حذف المستخدم بنجاح.' });
+      }
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
+    } finally {
+      setPendingDelete(null);
     }
   };
 
@@ -134,8 +142,8 @@ export default function SettingsPage() {
         milkSellPrice: Number(milkSellPrice) || 4.5,
       });
       toast({ title: 'تم الحفظ', description: 'تم حفظ الإعدادات بنجاح.' });
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
     } finally {
       setIsSaving(false);
     }
@@ -156,7 +164,7 @@ export default function SettingsPage() {
       const url = await getDownloadURL(storageRef);
       await updateSettings({ logoUrl: url });
       toast({ title: 'تم', description: 'تم تحديث شعار التعاونية.' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({ variant: 'destructive', title: 'خطأ', description: 'فشل رفع الشعار.' });
     } finally {
       setIsUploading(false);
@@ -164,14 +172,13 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
-    try {
-      await removeUser(userId);
-      toast({ title: 'تم الحذف', description: 'تم حذف المستخدم بنجاح.' });
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
-    }
+  const handleDeleteUser = (userId: string) => {
+    const user = users?.find((u) => u.id === userId);
+    setPendingDelete({
+      type: 'user',
+      id: userId,
+      label: user?.displayName || user?.email || 'المستخدم',
+    });
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -182,8 +189,8 @@ export default function SettingsPage() {
       toast({ title: 'تم', description: 'تم إنشاء المستخدم بنجاح.' });
       setIsUserDialogOpen(false);
       setUserForm({ email: '', password: '', displayName: '', role: 'collector' });
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
     } finally {
       setIsCreatingUser(false);
     }
@@ -193,8 +200,8 @@ export default function SettingsPage() {
     try {
       await updateUser(userId, { role: newRole });
       toast({ title: 'تم التحديث', description: 'تم تحديث صلاحية المستخدم.' });
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
     }
   };
 
@@ -601,7 +608,7 @@ export default function SettingsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteDelivery(d.id, d.companyName)}
+                            onClick={() => setPendingDelete({ type: 'delivery', id: d.id, label: d.companyName })}
                             title="حذف التسليم"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -651,7 +658,7 @@ export default function SettingsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteInvoice(inv.id, memberName(inv.memberId))}
+                            onClick={() => setPendingDelete({ type: 'invoice', id: inv.id, label: memberName(inv.memberId) })}
                             title="حذف الفاتورة"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -666,6 +673,28 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Confirm Delete Dialog ── */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={
+          pendingDelete?.type === 'delivery'
+            ? 'حذف التسليم'
+            : pendingDelete?.type === 'invoice'
+              ? 'حذف الفاتورة'
+              : 'حذف المستخدم'
+        }
+        description={
+          pendingDelete?.type === 'delivery'
+            ? `هل أنت متأكد من حذف تسليم "${pendingDelete.label}"؟ لا يمكن التراجع عن هذا الإجراء.`
+            : pendingDelete?.type === 'invoice'
+              ? `هل أنت متأكد من حذف فاتورة "${pendingDelete?.label}"؟ سيتم فقدان حالة الدفع لهذا الشهر.`
+              : `هل أنت متأكد من حذف المستخدم "${pendingDelete?.label}"؟`
+        }
+        confirmLabel="حذف"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </Layout>
   );
 }

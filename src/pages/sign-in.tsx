@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, KeyRound } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import logo from '@/assets/logo.png';
 
 function mapFirebaseError(code: string): string {
@@ -31,13 +41,23 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Forgot password dialog state
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+
   const { signIn, appUser } = useAuth();
   const [, setLocation] = useLocation();
 
-  if (appUser) {
-    setLocation(appUser.role === 'admin' ? '/' : '/milk');
-    return null;
-  }
+  // FIX: use useEffect for redirect instead of calling setLocation during render
+  useEffect(() => {
+    if (appUser) {
+      setLocation(appUser.role === 'admin' ? '/' : '/milk');
+    }
+  }, [appUser, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,22 +65,42 @@ export default function SignIn() {
     setIsSubmitting(true);
     try {
       await signIn(email, password);
-      // onAuthStateChanged سيُحدّث appUser تلقائياً، والتحقق في أعلى المكوّن
-      // سيعيد التوجيه إلى الصفحة الصحيحة حسب الدور (مدير → / ، غيره → /milk)
-    } catch (err: any) {
-      const code = err?.code || '';
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? '';
       setError(mapFirebaseError(code));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError(null);
+    setResetMessage(null);
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setResetMessage('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.');
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? '';
+      if (code === 'auth/user-not-found' || code === 'auth/invalid-email') {
+        setResetError('لم يتم العثور على حساب بهذا البريد الإلكتروني.');
+      } else {
+        setResetError('حدث خطأ. يرجى المحاولة مرة أخرى.');
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  if (appUser) return null;
+
   return (
     <div
       className="flex min-h-[100dvh] w-full items-center justify-center bg-background p-4 font-sans"
       dir="rtl"
     >
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background"></div>
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
 
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-border bg-card p-8 shadow-xl">
         <div className="mb-8 flex flex-col items-center text-center">
@@ -105,11 +145,72 @@ export default function SignIn() {
               disabled={isSubmitting}
             />
           </div>
-          <Button type="submit" className="w-full mt-6" disabled={isSubmitting}>
+          <div className="text-left">
+            <button
+              type="button"
+              onClick={() => {
+                setResetEmail(email);
+                setResetMessage(null);
+                setResetError(null);
+                setResetDialogOpen(true);
+              }}
+              className="text-xs text-primary hover:underline"
+            >
+              نسيت كلمة المرور؟
+            </button>
+          </div>
+          <Button type="submit" className="w-full mt-4" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'تسجيل الدخول'}
           </Button>
         </form>
       </div>
+
+      {/* ── Forgot Password Dialog ── */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-primary" />
+              إعادة تعيين كلمة المرور
+            </DialogTitle>
+            <DialogDescription>
+              أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePasswordReset} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email">البريد الإلكتروني</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                dir="ltr"
+                className="text-left"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+                disabled={resetLoading}
+                placeholder="name@example.com"
+              />
+            </div>
+            {resetError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="mr-2 text-sm">{resetError}</AlertDescription>
+              </Alert>
+            )}
+            {resetMessage && (
+              <Alert className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700">
+                <AlertDescription className="text-sm">{resetMessage}</AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter>
+              <Button type="submit" className="w-full" disabled={resetLoading}>
+                {resetLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'إرسال الرابط'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

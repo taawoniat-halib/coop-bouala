@@ -46,7 +46,7 @@ export default function Transporters() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Transporter | null>(null);
   const { toast } = useToast();
-  const currency = settings?.currency === 'MAD' ? 'درهم' : settings?.currency;
+  const currency = settings?.currency === 'MAD' ? 'درهم' : (settings?.currency ?? 'درهم');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -105,8 +105,8 @@ export default function Transporters() {
         toast({ title: 'تمت الإضافة', description: 'تمت إضافة الناقل بنجاح.' });
       }
       setIsDialogOpen(false);
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
     }
   };
 
@@ -115,8 +115,8 @@ export default function Transporters() {
     try {
       await remove(deleteCandidate.id);
       toast({ title: 'تم الحذف', description: 'تم حذف الناقل بنجاح.' });
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
     } finally {
       setDeleteCandidate(null);
     }

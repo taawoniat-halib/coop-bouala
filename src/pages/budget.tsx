@@ -50,7 +50,7 @@ export default function Budget() {
     label: string;
   } | null>(null);
 
-  const currency = settings?.currency === 'MAD' ? 'درهم' : settings?.currency;
+  const currency = settings?.currency === 'MAD' ? 'درهم' : (settings?.currency ?? 'درهم');
 
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -96,8 +96,8 @@ export default function Budget() {
         notes: '',
       });
       setIsIncomeDialogOpen(false);
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
     }
   };
 
@@ -120,8 +120,8 @@ export default function Budget() {
         notes: '',
       });
       setIsExpenseDialogOpen(false);
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
     }
   };
 
@@ -373,8 +373,8 @@ export default function Budget() {
                     await removeExpense(deleteCandidate.id);
                   }
                   toast({ title: 'تم الحذف', description: 'تم حذف العملية بنجاح.' });
-                } catch (err: any) {
-                  toast({ variant: 'destructive', title: 'خطأ', description: err.message });
+                } catch (err: unknown) {
+                  toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
                 } finally {
                   setDeleteCandidate(null);
                 }

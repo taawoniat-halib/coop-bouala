@@ -49,5 +49,10 @@ export { db };
 
 export const storage = getStorage(firebaseApp);
 
-/** The email that is automatically promoted to admin on first sign-in. */
-export const BOOTSTRAP_ADMIN_EMAIL = 'okas34744@gmail.com';
+/**
+ * The email that is automatically promoted to admin on first sign-in.
+ * Set VITE_BOOTSTRAP_ADMIN_EMAIL in your .env / GitHub Actions Secrets.
+ * Falls back to empty string so no bootstrap happens if not configured.
+ */
+export const BOOTSTRAP_ADMIN_EMAIL =
+  (import.meta.env.VITE_BOOTSTRAP_ADMIN_EMAIL as string | undefined)?.toLowerCase() ?? '';

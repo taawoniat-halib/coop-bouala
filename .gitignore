@@ -5,3 +5,6 @@ dist-ssr
 .DS_Store
 *.tsbuildinfo
 .firebase
+.env
+.env.production
+.env.staging

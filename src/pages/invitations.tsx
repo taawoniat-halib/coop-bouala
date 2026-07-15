@@ -1,7 +1,7 @@
 import { Layout } from '@/components/Layout';
 import { useMembers } from '@/hooks/useData';
 import { useSettings } from '@/hooks/useSettings';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,8 +21,17 @@ export default function InvitationsPage() {
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [messageTemplate, setMessageTemplate] = useState(
-    `مرحباً {اسم_المنخرط}،\nتدعوكم ${settings?.coopName || 'تعاونية كوب بوعلا'} للتواصل معنا.\nشكراً لتعاونكم.`,
+    `مرحباً {اسم_المنخرط}،\nتدعوكم تعاونية كوب بوعلا للتواصل معنا.\nشكراً لتعاونكم.`,
   );
+
+  // FIX: sync template with settings when they load (settings comes async)
+  useEffect(() => {
+    if (settings?.coopName) {
+      setMessageTemplate(
+        `مرحباً {اسم_المنخرط}،\nتدعوكم ${settings.coopName} للتواصل معنا.\nشكراً لتعاونكم.`,
+      );
+    }
+  }, [settings?.coopName]);
 
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
 

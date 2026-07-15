@@ -13,42 +13,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js
-        # Node 20's bundled npm (10.8.2) has a deterministic "Exit handler
-        # never called!" bug that leaves node_modules incomplete on `npm ci`
-        # while still exiting 0. Node 22 ships a fixed npm and is also what
-        # GitHub now runs actions on by default (Node 20 is deprecated).
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Upgrade npm
-        run: npm install -g npm@latest
+          cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          set +e
-          success=0
-          for i in 1 2 3; do
-            echo "npm ci attempt $i..."
-            npm ci
-            ci_status=$?
-            if [ $ci_status -eq 0 ] && [ -s node_modules/@types/node/index.d.ts ] && [ -s node_modules/vite/client.d.ts ]; then
-              success=1
-              break
-            fi
-            echo "npm ci attempt $i incomplete (exit=$ci_status). Cleaning npm cache and node_modules before retrying..."
-            npm cache clean --force
-            rm -rf node_modules
-            sleep $((i * 5))
-          done
-          set -e
-          if [ "$success" -ne 1 ]; then
-            echo "npm ci failed to produce a complete install after multiple attempts."
-            exit 1
-          fi
-          echo "Dependencies installed successfully."
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
 
       - name: Build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_BOOTSTRAP_ADMIN_EMAIL: ${{ secrets.VITE_BOOTSTRAP_ADMIN_EMAIL }}
         run: npm run build
 
       - name: Deploy to Firebase Hosting
