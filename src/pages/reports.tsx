@@ -51,6 +51,7 @@ import {
   TrendingDown,
   Wallet,
   Filter,
+  Calendar,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -68,12 +69,11 @@ import {
   Legend,
 } from 'recharts';
 
-// ────────────────────────────────────────────────────────────────────────────
-// Coop Bouala — Annual interactive report (2025 style)
-// Implements the full HTML prompt spec: header, main data grid with monthly
-// columns (liters + attendance + notes), footer totals, filters, charts,
-// financial summary block, and export to PDF / Excel / WhatsApp / Print.
-// ────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Coop Bouala — Annual interactive report (dynamic year selection)
+// The user picks any year; the report is built entirely from data recorded
+// in the application for that year. By default it shows the current year.
+// ─────────────────────────────────────────────────────────────────────────────
 
 const PURPLE = '#800070';
 const PURPLE_DARK = '#5a005a';
@@ -83,9 +83,30 @@ const TOTAL_BG = '#E6FFE6';
 const DANGER = '#dc3545';
 const SUCCESS = '#28a745';
 
-const MONTH_KEYS = MONTH_NAMES_AR.map((_, i) => `2025-${String(i + 1).padStart(2, '0')}`);
-
 const EXPENSE_PALETTE = ['#800070', '#4a90d9', '#ff6b35', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1'];
+
+/** Returns an array of year strings derived from all data sources plus the
+ *  current year, sorted descending. This populates the year selector so the
+ *  user can pick any year that has data (or the current year). */
+function availableYears(
+  milkReceived: { date: string }[],
+  milkDelivered: { date: string }[],
+  incomes: { date: string }[],
+  expenses: { date: string }[],
+  members: { createdAt?: unknown }[],
+): string[] {
+  const set = new Set<string>();
+  const currentYear = String(new Date().getFullYear());
+  set.add(currentYear);
+  const extract = (d?: string) => {
+    if (d && /^\d{4}/.test(d)) set.add(d.slice(0, 4));
+  };
+  milkReceived.forEach((r) => extract(r.date));
+  milkDelivered.forEach((d) => extract(d.date));
+  incomes.forEach((i) => extract(i.date));
+  expenses.forEach((e) => extract(e.date));
+  return Array.from(set).sort((a, b) => b.localeCompare(a));
+}
 
 function fmtL(n: number): string {
   if (!n || n === 0) return '';
@@ -166,12 +187,39 @@ export default function Reports() {
     pricesLoading ||
     trLoading;
 
+  // ── Year selection ──────────────────────────────────────────────────────
+  // Default to the current year; the user can switch to any other year.
+  const currentYearStr = String(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
+
+  // Build the list of selectable years from all data + current year.
+  const years = useMemo(
+    () =>
+      availableYears(
+        milkReceived ?? [],
+        milkDelivered ?? [],
+        incomes ?? [],
+        expenses ?? [],
+        members ?? [],
+      ),
+    [milkReceived, milkDelivered, incomes, expenses, members],
+  );
+
+  // MONTH_KEYS are derived from the selected year (e.g. YYYY-01 … YYYY-12)
+  const MONTH_KEYS = useMemo(
+    () => MONTH_NAMES_AR.map((_, i) => `${selectedYear}-${String(i + 1).padStart(2, '0')}`),
+    [selectedYear],
+  );
+
   // Filters
   const [search, setSearch] = useState('');
-  const [monthFilter, setMonthFilter] = useState<string>('all'); // 'all' or 2025-MM
+  const [monthFilter, setMonthFilter] = useState<string>('all'); // 'all' or {year}-MM
   const [sortKey, setSortKey] = useState<'seq' | 'name' | 'total'>('seq');
 
-  // ── Annual member rows (2025) ──────────────────────────────────────────────
+  // Reset month filter whenever the year changes (avoid stale month keys).
+  const yearPrefix = `${selectedYear}-`;
+
+  // ── Annual member rows (for selected year) ──────────────────────────────
   const memberRows: MemberAnnualRow[] = useMemo(() => {
     if (!members) return [];
     return members
@@ -180,7 +228,7 @@ export default function Reports() {
         const monthlyDays = new Array(12).fill(0) as number[];
         const monthlyNotes = new Array(12).fill(undefined) as (string | undefined)[];
         (milkReceived ?? [])
-          .filter((r) => r.memberId === m.id && r.date.startsWith('2025-'))
+          .filter((r) => r.memberId === m.id && r.date.startsWith(yearPrefix))
           .forEach((r) => {
             const mi = parseInt(r.date.slice(5, 7), 10) - 1;
             if (mi < 0 || mi > 11) return;
@@ -202,9 +250,9 @@ export default function Reports() {
         };
       })
       .sort((a, b) => a.seq - b.seq);
-  }, [members, milkReceived]);
+  }, [members, milkReceived, yearPrefix]);
 
-  // ── Month summaries (income / expense / surplus / balance) ─────────────────
+  // ── Month summaries (income / expense / surplus / balance) ──────────────
   const monthSummaries: MonthSummary[] = useMemo(() => {
     const arr: MonthSummary[] = MONTH_KEYS.map((mk) => {
       const inc = (incomes ?? [])
@@ -236,9 +284,9 @@ export default function Reports() {
       m.balance = running;
     });
     return arr;
-  }, [incomes, expenses, milkDelivered, milkReceived]);
+  }, [incomes, expenses, milkDelivered, milkReceived, MONTH_KEYS]);
 
-  // ── Financial summary lines (canned categories from the prompt) ────────────
+  // ── Financial summary lines (canned categories) ─────────────────────────
   const financeLines: FinanceLine[] = useMemo(() => {
     const lines: FinanceLine[] = [
       { key: 'sell15_1', label: 'بيع الحليب 15/1', type: 'income', values: {} },
@@ -275,7 +323,7 @@ export default function Reports() {
       const cat = classify(i.label || '');
       if (!cat) return;
       const mk = monthKey(i.date);
-      if (!mk.startsWith('2025-')) return;
+      if (!mk.startsWith(yearPrefix)) return;
       const line = lines.find((l) => l.key === cat);
       if (line) line.values[mk] = (line.values[mk] || 0) + (Number(i.amount) || 0);
     });
@@ -283,7 +331,7 @@ export default function Reports() {
       const cat = classify(e.label || '');
       if (!cat) return;
       const mk = monthKey(e.date);
-      if (!mk.startsWith('2025-')) return;
+      if (!mk.startsWith(yearPrefix)) return;
       const line = lines.find((l) => l.key === cat);
       if (line) line.values[mk] = (line.values[mk] || 0) + (Number(e.amount) || 0);
     });
@@ -310,18 +358,18 @@ export default function Reports() {
     });
 
     return lines;
-  }, [incomes, expenses, milkReceived, milkDelivered, settings]);
+  }, [incomes, expenses, milkReceived, milkDelivered, settings, MONTH_KEYS, yearPrefix]);
 
-  // ── Aggregated totals ──────────────────────────────────────────────────────
+  // ── Aggregated totals ───────────────────────────────────────────────────
   const totalLitersYear = memberRows.reduce((s, r) => s + r.totalLiters, 0);
-  const yearPrice = priceForMonth(prices ?? [], '2025-01') || settings.milkPurchasePrice || 4.2;
+  const yearPrice = priceForMonth(prices ?? [], `${selectedYear}-01`) || settings.milkPurchasePrice || 4.2;
   const totalIncome = monthSummaries.reduce((s, m) => s + m.income, 0);
   const totalExpense = monthSummaries.reduce((s, m) => s + m.expense, 0);
   const totalSurplus = totalIncome - totalExpense;
   const finalBalance = monthSummaries.length ? monthSummaries[monthSummaries.length - 1].balance : 0;
   const activeMembers = memberRows.filter((r) => r.totalLiters > 0).length;
 
-  // ── Filtered + sorted rows for display ─────────────────────────────────────
+  // ── Filtered + sorted rows for display ──────────────────────────────────
   const filteredRows = useMemo(() => {
     let rows = memberRows;
     if (search.trim()) {
@@ -339,7 +387,7 @@ export default function Reports() {
     return sorted;
   }, [memberRows, search, monthFilter, sortKey]);
 
-  // ── Chart data ─────────────────────────────────────────────────────────────
+  // ── Chart data ──────────────────────────────────────────────────────────
   const productionChartData = MONTH_NAMES_AR_SHORT.map((label, i) => ({
     name: label,
     'الإنتاج (لتر)': monthSummaries[i]?.litersReceived || 0,
@@ -359,7 +407,7 @@ export default function Reports() {
     }))
     .filter((d) => d.value > 0);
 
-  // ── Export handlers ────────────────────────────────────────────────────────
+  // ── Export handlers ─────────────────────────────────────────────────────
   const handleExportPdf = () => {
     const columns = [
       { header: '#', key: 'seq' },
@@ -372,7 +420,7 @@ export default function Reports() {
       r.monthlyLiters.forEach((v, i) => (o[`m${i}`] = fmtL(v)));
       return o;
     });
-    exportToPdf(`تقرير تعاونية ${settings.coopName || 'كوب بوعلا'} — 2025`, columns, rows, 'report-2025');
+    exportToPdf(`تقرير تعاونية ${settings.coopName || 'كوب بوعلا'} — ${selectedYear}`, columns, rows, `report-${selectedYear}`);
   };
 
   const handleExportExcel = async () => {
@@ -387,12 +435,12 @@ export default function Reports() {
       r.monthlyLiters.forEach((v, i) => (o[`m${i}`] = v));
       return o;
     });
-    await exportToExcel('تقرير 2025', columns, rows, 'report-2025');
+    await exportToExcel(`تقرير ${selectedYear}`, columns, rows, `report-${selectedYear}`);
   };
 
   const handleWhatsApp = () => {
     const msg =
-      `📊 تقرير تعاونية ${settings.coopName || 'كوب بوعلا'} — 2025\n` +
+      `📊 تقرير تعاونية ${settings.coopName || 'كوب بوعلا'} — ${selectedYear}\n` +
       `الجماعة: بني زروال\n` +
       `عدد الأعضاء النشطين: ${activeMembers}\n` +
       `مجموع اللترات: ${fmtL(totalLitersYear)} لتر\n` +
@@ -418,7 +466,7 @@ export default function Reports() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* ── Header ─────────────────────────────────────────────────────────── */}
+        {/* ── Header ─────────────────────────────────────────────────────── */}
         <div
           className="rounded-2xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden"
           style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, ${PURPLE_DARK} 100%)` }}
@@ -427,7 +475,7 @@ export default function Reports() {
             <h1 className="text-2xl md:text-3xl font-black mb-2">
               📊 {settings.coopName || 'تعاونية كوب بوعلا'}
             </h1>
-            <p className="opacity-90 text-sm md:text-base">جماعة بني زروال — التقرير السنوي 2025</p>
+            <p className="opacity-90 text-sm md:text-base">جماعة بني زروال — التقرير السنوي {selectedYear}</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
               <HeaderStat label="مجموع اللترات" value={`${fmtL(totalLitersYear)} لتر`} icon={<Droplets className="h-4 w-4" />} />
               <HeaderStat label="ثمن اللتر" value={`${fmtM(yearPrice)} ${currSym(settings.currency)}`} icon={<Wallet className="h-4 w-4" />} />
@@ -441,23 +489,41 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* ── Export bar ─────────────────────────────────────────────────────── */}
-        <div className="flex flex-wrap gap-2 items-center justify-end">
-          <Button variant="outline" onClick={printPage} className="gap-2">
-            <Printer className="h-4 w-4" /> طباعة
-          </Button>
-          <Button variant="outline" onClick={handleExportPdf} className="gap-2">
-            <FileText className="h-4 w-4" /> PDF
-          </Button>
-          <Button variant="outline" onClick={handleExportExcel} className="gap-2">
-            <FileSpreadsheet className="h-4 w-4" /> Excel
-          </Button>
-          <Button onClick={handleWhatsApp} className="gap-2">
-            <Send className="h-4 w-4" /> واتساب
-          </Button>
+        {/* ── Year selector + Export bar ─────────────────────────────────── */}
+        <div className="flex flex-wrap gap-3 items-center justify-between">
+          <div className="flex items-center gap-3 bg-card border border-border rounded-lg p-1 pl-3">
+            <Calendar className="h-5 w-5 text-primary" />
+            <Label className="text-sm font-medium whitespace-nowrap">السنة:</Label>
+            <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setMonthFilter('all'); }}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((y) => (
+                  <SelectItem key={y} value={y}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            <Button variant="outline" onClick={printPage} className="gap-2">
+              <Printer className="h-4 w-4" /> طباعة
+            </Button>
+            <Button variant="outline" onClick={handleExportPdf} className="gap-2">
+              <FileText className="h-4 w-4" /> PDF
+            </Button>
+            <Button variant="outline" onClick={handleExportExcel} className="gap-2">
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </Button>
+            <Button onClick={handleWhatsApp} className="gap-2">
+              <Send className="h-4 w-4" /> واتساب
+            </Button>
+          </div>
         </div>
 
-        {/* ── Filters ────────────────────────────────────────────────────────── */}
+        {/* ── Filters ────────────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -487,7 +553,7 @@ export default function Reports() {
                   <SelectContent>
                     <SelectItem value="all">كل الأشهر</SelectItem>
                     {MONTH_NAMES_AR.map((m, i) => (
-                      <SelectItem key={i} value={`2025-${String(i + 1).padStart(2, '0')}`}>
+                      <SelectItem key={i} value={`${selectedYear}-${String(i + 1).padStart(2, '0')}`}>
                         {m}
                       </SelectItem>
                     ))}
@@ -511,11 +577,11 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {/* ── Main data grid ─────────────────────────────────────────────────── */}
+        {/* ── Main data grid ─────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <BarChart3 className="h-5 w-5" /> سجل الأعضاء والإنتاج الشهري 2025
+              <BarChart3 className="h-5 w-5" /> سجل الأعضاء والإنتاج الشهري {selectedYear}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -542,7 +608,7 @@ export default function Reports() {
                   {filteredRows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
-                        لا توجد بيانات. ابدأ بتسجيل استلام الحليب من صفحة «الحليب».
+                        لا توجد بيانات لسنة {selectedYear}. ابدأ بتسجيل استلام الحليب من صفحة «الحليب».
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -611,7 +677,7 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {/* ── Charts ─────────────────────────────────────────────────────────── */}
+        {/* ── Charts ─────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader className="pb-2">
@@ -691,11 +757,11 @@ export default function Reports() {
           )}
         </div>
 
-        {/* ── Financial summary block ────────────────────────────────────────── */}
+        {/* ── Financial summary block ────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Wallet className="h-5 w-5" /> الملخص المالي السنوي 2025
+              <Wallet className="h-5 w-5" /> الملخص المالي السنوي {selectedYear}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -812,10 +878,10 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {/* ── Footer note ────────────────────────────────────────────────────── */}
+        {/* ── Footer note ────────────────────────────────────────────────── */}
         <div className="text-center py-4 text-sm text-muted-foreground">
           <p>تم إنشاء هذا التقرير خصيصاً لتعاونية {settings.coopName || 'كوب بوعلا'} — جماعة بني زروال</p>
-          <p className="mt-1">📅 السنة المالية: 2025 | 👥 عدد الأعضاء النشطين: {activeMembers}</p>
+          <p className="mt-1">📅 السنة المالية: {selectedYear} | 👥 عدد الأعضاء النشطين: {activeMembers}</p>
         </div>
       </div>
     </Layout>
