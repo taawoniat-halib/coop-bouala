@@ -2,25 +2,22 @@ import { Layout } from '@/components/Layout';
 import {
   useMembers,
   useMilkReceived,
-  useTransporters,
-  usePrices,
   useMilkDelivered,
-  useInvoices,
+  useIncomes,
+  useExpenses,
+  usePrices,
+  useTransporters,
 } from '@/hooks/useData';
 import { useSettings } from '@/hooks/useSettings';
 import { useState, useMemo } from 'react';
-import { format } from 'date-fns';
 import {
-  computeMemberMonthlyStatements,
-  deliveredByCompany,
-  computeMonthlyStockBalance,
   monthKey,
+  monthLabel as monthLabelAr,
+  MONTH_NAMES_AR,
+  MONTH_NAMES_AR_SHORT,
   priceForMonth,
-  monthLabel,
-  generateMonthOptions,
 } from '@/lib/calculations';
-import { printFarmerInvoice, printCompanyInvoice, exportToPdf, exportToExcel, shareOnWhatsApp, buildFarmerWhatsAppMessage } from '@/lib/exportUtils';
-import { ZoomableTable } from '@/components/ZoomableTable';
+import { exportToPdf, exportToExcel, printPage, shareOnWhatsApp } from '@/lib/exportUtils';
 import {
   Table,
   TableBody,
@@ -31,37 +28,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Printer,
-  Calendar,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Send,
-  Search,
-  Download,
-  FileSpreadsheet,
-  FileText,
-} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandItem,
-  CommandEmpty,
-} from '@/components/ui/command';
 import {
   Select,
   SelectContent,
@@ -70,863 +37,787 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Printer,
+  FileText,
+  FileSpreadsheet,
+  Send,
+  Search,
+  BarChart3,
+  Loader2,
+  Droplets,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Filter,
+} from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RTooltip,
+  Legend,
+} from 'recharts';
 
-const MONTH_OPTIONS = generateMonthOptions(24);
+// ────────────────────────────────────────────────────────────────────────────
+// Coop Bouala — Annual interactive report (2025 style)
+// Implements the full HTML prompt spec: header, main data grid with monthly
+// columns (liters + attendance + notes), footer totals, filters, charts,
+// financial summary block, and export to PDF / Excel / WhatsApp / Print.
+// ────────────────────────────────────────────────────────────────────────────
+
+const PURPLE = '#800070';
+const PURPLE_DARK = '#5a005a';
+const ROW_ALT = '#E6F3FF';
+const CELL_EMPTY = '#FFE6E6';
+const TOTAL_BG = '#E6FFE6';
+const DANGER = '#dc3545';
+const SUCCESS = '#28a745';
+
+const MONTH_KEYS = MONTH_NAMES_AR.map((_, i) => `2025-${String(i + 1).padStart(2, '0')}`);
+
+const EXPENSE_PALETTE = ['#800070', '#4a90d9', '#ff6b35', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1'];
+
+function fmtL(n: number): string {
+  if (!n || n === 0) return '';
+  return n.toLocaleString('fr-MA', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+}
+function fmtM(n: number): string {
+  if (!n || n === 0) return '—';
+  return n.toLocaleString('fr-MA', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+function currSym(c?: string): string {
+  return c === 'MAD' || c === 'درهم' ? 'درهم' : c ?? 'درهم';
+}
+
+function HeaderStat({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return (
+    <div className="bg-white/15 rounded-lg p-3 text-center backdrop-blur-sm">
+      <div className="flex items-center justify-center gap-1.5 text-xs opacity-90 mb-1">
+        {icon}
+        {label}
+      </div>
+      <div className="font-mono text-lg md:text-xl font-bold">{value}</div>
+    </div>
+  );
+}
+
+interface MemberAnnualRow {
+  seq: number;
+  memberId: string;
+  name: string;
+  /** liters per month 0..11 */
+  monthlyLiters: number[];
+  /** attendance present-day count per month */
+  monthlyDays: number[];
+  /** notes per month */
+  monthlyNotes: (string | undefined)[];
+  totalLiters: number;
+  totalDays: number;
+}
+
+interface MonthSummary {
+  monthKey: string;
+  monthLabel: string;
+  income: number;
+  expense: number;
+  surplus: number;
+  litersSold: number;
+  litersReceived: number;
+  /** running balance after this month */
+  balance: number;
+}
+
+/** Pre-canned financial line items matching the prompt's summary block. */
+interface FinanceLine {
+  key: string;
+  label: string;
+  type: 'income' | 'expense';
+  /** monthKey -> amount */
+  values: Record<string, number>;
+}
 
 export default function Reports() {
-  const { data: members } = useMembers();
-  const { data: receipts } = useMilkReceived();
-  const { data: transporters } = useTransporters();
-  const { data: prices } = usePrices();
-  const { data: deliveries } = useMilkDelivered();
-  const { data: invoices } = useInvoices();
-  const { settings } = useSettings();
+  const { settings, loading: settingsLoading } = useSettings();
+  const { data: members, loading: membersLoading } = useMembers();
+  const { data: milkReceived, loading: mrLoading } = useMilkReceived();
+  const { data: milkDelivered, loading: mdLoading } = useMilkDelivered();
+  const { data: incomes, loading: incLoading } = useIncomes();
+  const { data: expenses, loading: expLoading } = useExpenses();
+  const { data: prices, loading: pricesLoading } = usePrices();
+  const { data: transporters, loading: trLoading } = useTransporters();
 
-  const [monthFilter, setMonthFilter] = useState(monthKey(format(new Date(), 'yyyy-MM-dd')));
-  const [activeTab, setActiveTab] = useState('members');
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
-  const [printingMemberId, setPrintingMemberId] = useState<string | null>(null);
+  const loading =
+    settingsLoading ||
+    membersLoading ||
+    mrLoading ||
+    mdLoading ||
+    incLoading ||
+    expLoading ||
+    pricesLoading ||
+    trLoading;
 
-  // Advanced report state
-  const [selectedFarmerIdReport, setSelectedFarmerIdReport] = useState('');
+  // Filters
+  const [search, setSearch] = useState('');
+  const [monthFilter, setMonthFilter] = useState<string>('all'); // 'all' or 2025-MM
+  const [sortKey, setSortKey] = useState<'seq' | 'name' | 'total'>('seq');
 
-  const currency = settings?.currency === 'MAD' ? 'درهم' : (settings?.currency ?? 'درهم');
-  const milkPurchasePrice = settings?.milkPurchasePrice ?? 4.2;
-  const milkSellPrice = settings?.milkSellPrice ?? 4.5;
+  // ── Annual member rows (2025) ──────────────────────────────────────────────
+  const memberRows: MemberAnnualRow[] = useMemo(() => {
+    if (!members) return [];
+    return members
+      .map((m, idx) => {
+        const monthlyLiters = new Array(12).fill(0) as number[];
+        const monthlyDays = new Array(12).fill(0) as number[];
+        const monthlyNotes = new Array(12).fill(undefined) as (string | undefined)[];
+        (milkReceived ?? [])
+          .filter((r) => r.memberId === m.id && r.date.startsWith('2025-'))
+          .forEach((r) => {
+            const mi = parseInt(r.date.slice(5, 7), 10) - 1;
+            if (mi < 0 || mi > 11) return;
+            monthlyLiters[mi] += r.quantityLiters;
+            monthlyDays[mi] += 1;
+            if (r.notes && !monthlyNotes[mi]) monthlyNotes[mi] = r.notes;
+          });
+        const totalLiters = monthlyLiters.reduce((a, b) => a + b, 0);
+        const totalDays = monthlyDays.reduce((a, b) => a + b, 0);
+        return {
+          seq: idx + 1,
+          memberId: m.id,
+          name: m.fullName,
+          monthlyLiters,
+          monthlyDays,
+          monthlyNotes,
+          totalLiters,
+          totalDays,
+        };
+      })
+      .sort((a, b) => a.seq - b.seq);
+  }, [members, milkReceived]);
 
-  const memberStatements = useMemo(
-    () =>
-      computeMemberMonthlyStatements(
-        members,
-        receipts,
-        transporters,
-        prices,
-        monthFilter,
-        milkPurchasePrice,
-        milkSellPrice,
-      )
-        .filter((st) => st.totalLiters > 0)
-        .sort((a, b) => b.totalLiters - a.totalLiters),
-    [members, receipts, transporters, prices, monthFilter, milkPurchasePrice, milkSellPrice],
-  );
+  // ── Month summaries (income / expense / surplus / balance) ─────────────────
+  const monthSummaries: MonthSummary[] = useMemo(() => {
+    const arr: MonthSummary[] = MONTH_KEYS.map((mk) => {
+      const inc = (incomes ?? [])
+        .filter((i) => monthKey(i.date) === mk)
+        .reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      const exp = (expenses ?? [])
+        .filter((e) => monthKey(e.date) === mk)
+        .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const litersSold = (milkDelivered ?? [])
+        .filter((d) => monthKey(d.date) === mk)
+        .reduce((s, d) => s + d.quantityLiters, 0);
+      const litersReceived = (milkReceived ?? [])
+        .filter((r) => monthKey(r.date) === mk)
+        .reduce((s, r) => s + r.quantityLiters, 0);
+      return {
+        monthKey: mk,
+        monthLabel: monthLabelAr(mk),
+        income: inc,
+        expense: exp,
+        surplus: inc - exp,
+        litersSold,
+        litersReceived,
+        balance: 0,
+      };
+    });
+    let running = 0;
+    arr.forEach((m) => {
+      running += m.surplus;
+      m.balance = running;
+    });
+    return arr;
+  }, [incomes, expenses, milkDelivered, milkReceived]);
 
-  const allMembersSorted = useMemo(
-    () =>
-      [...members]
-        .filter((m) => m.active)
-        .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ar')),
-    [members],
-  );
+  // ── Financial summary lines (canned categories from the prompt) ────────────
+  const financeLines: FinanceLine[] = useMemo(() => {
+    const lines: FinanceLine[] = [
+      { key: 'sell15_1', label: 'بيع الحليب 15/1', type: 'income', values: {} },
+      { key: 'sell15_2', label: 'بيع الحليب 15/2', type: 'income', values: {} },
+      { key: 'bad_milk', label: 'حليب غير صالح', type: 'income', values: {} },
+      { key: 'buy15_1', label: 'شراء الحليب 15/1', type: 'expense', values: {} },
+      { key: 'buy15_2', label: 'شراء الحليب 15/2', type: 'expense', values: {} },
+      { key: 'labor', label: 'اليد العاملة', type: 'expense', values: {} },
+      { key: 'electricity', label: 'الكهرباء', type: 'expense', values: {} },
+      { key: 'transport_mustapha', label: 'نقل مصطفى', type: 'expense', values: {} },
+      { key: 'camion_coop', label: 'تعاونية الكامون', type: 'expense', values: {} },
+    ];
 
-  const companyDeliveries = useMemo(
-    () => deliveredByCompany(deliveries, monthFilter).sort((a, b) => b.liters - a.liters),
-    [deliveries, monthFilter],
-  );
-
-  const stockBalance = useMemo(
-    () => computeMonthlyStockBalance(receipts, deliveries, monthFilter),
-    [receipts, deliveries, monthFilter],
-  );
-
-  const totalMembersNet = memberStatements.reduce((s, st) => s + st.netAmount, 0);
-  const totalCompanyAmount = companyDeliveries.reduce((s, d) => s + d.amount, 0);
-
-  /** Receipts for the selected month (used by the farmer report) */
-  const monthReceiptsForFarmer = useMemo(
-    () => receipts.filter((r) => monthKey(r.date) === monthFilter),
-    [receipts, monthFilter],
-  );
-
-  /** Individual farmer monthly report */
-  const farmerReport = useMemo(() => {
-    if (!selectedFarmerIdReport) return null;
-    const member = members.find((m) => m.id === selectedFarmerIdReport);
-    if (!member) return null;
-    const farmerReceipts = monthReceiptsForFarmer.filter(
-      (r) => r.memberId === selectedFarmerIdReport,
-    );
-    const totalLiters = farmerReceipts.reduce((s, r) => s + r.quantityLiters, 0);
-    const transportCost = farmerReceipts.reduce((s, r) => s + (r.transportCost ?? 0), 0);
-    const monthPrice = priceForMonth(prices, monthFilter);
-    const grossAmount = farmerReceipts.reduce(
-      (s, r) => s + r.quantityLiters * (r.pricePerLiter ?? monthPrice),
-      0,
-    );
-    // FIX: خصم الديون من الصافي (متسق مع computeMemberMonthlyStatements)
-    const debt = member.debt ?? 0;
-    const netAmount = grossAmount - transportCost - debt;
-    const purchaseValue = totalLiters * milkPurchasePrice;
-    const sellValue = totalLiters * milkSellPrice;
-    const profit = sellValue - purchaseValue - transportCost - debt;
-    return {
-      member,
-      totalLiters,
-      transportCost,
-      debt,
-      grossAmount,
-      netAmount,
-      purchaseValue,
-      sellValue,
-      profit,
-      farmerReceipts,
+    // Map income/expense records to categories by label keywords.
+    const classify = (label: string): string | null => {
+      const l = label.toLowerCase();
+      if (/بيع|vente|sale|sell/.test(label)) {
+        if (/15\/2|15-2|15 2|partie 2|2\/2|الحصة 2|الثانية/.test(label)) return 'sell15_2';
+        return 'sell15_1';
+      }
+      if (/غير صالح|non conforme|spoil|rebut|pert/.test(label)) return 'bad_milk';
+      if (/شراء|achat|buy|purchase/.test(label)) {
+        if (/15\/2|15-2|15 2|partie 2|2\/2|الحصة 2|الثانية/.test(label)) return 'buy15_2';
+        return 'buy15_1';
+      }
+      if (/يد عاملة|main d|labour|labor|salaire|أجور|رواتب/.test(label)) return 'labor';
+      if (/كهرباء|électricité|electric|électric/.test(label)) return 'electricity';
+      if (/مصطفى|mustapha|mustafa/.test(label)) return 'transport_mustapha';
+      if (/كامون|camion|transport|نقل/.test(label)) return 'camion_coop';
+      return null;
     };
-  }, [
-    selectedFarmerIdReport,
-    members,
-    monthReceiptsForFarmer,
-    prices,
-    monthFilter,
-    milkPurchasePrice,
-    milkSellPrice,
-  ]);
 
-  const getInvoicePaid = (memberId: string) =>
-    invoices.some((inv) => inv.memberId === memberId && inv.month === monthFilter && inv.paid);
+    (incomes ?? []).forEach((i) => {
+      const cat = classify(i.label || '');
+      if (!cat) return;
+      const mk = monthKey(i.date);
+      if (!mk.startsWith('2025-')) return;
+      const line = lines.find((l) => l.key === cat);
+      if (line) line.values[mk] = (line.values[mk] || 0) + (Number(i.amount) || 0);
+    });
+    (expenses ?? []).forEach((e) => {
+      const cat = classify(e.label || '');
+      if (!cat) return;
+      const mk = monthKey(e.date);
+      if (!mk.startsWith('2025-')) return;
+      const line = lines.find((l) => l.key === cat);
+      if (line) line.values[mk] = (line.values[mk] || 0) + (Number(e.amount) || 0);
+    });
 
-  const toggleInvoicePaid = async (memberId: string) => {
-    const invoiceId = `${memberId}_${monthFilter}`;
-    setTogglingId(invoiceId);
-    try {
-      await setDoc(
-        doc(db, 'invoices', invoiceId),
-        {
-          id: invoiceId,
-          memberId,
-          month: monthFilter,
-          paid: !getInvoicePaid(memberId),
-          paidAt: !getInvoicePaid(memberId) ? serverTimestamp() : null,
-          createdAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-    } finally {
-      setTogglingId(null);
+    // Fallback: derive milk buy/sell from milk_received / milk_delivered when
+    // no matching income/expense records exist, using configured prices.
+    const purchasePrice = settings.milkPurchasePrice ?? 4.2;
+    const sellPrice = settings.milkSellPrice ?? 4.5;
+    MONTH_KEYS.forEach((mk) => {
+      const buyLine = lines.find((l) => l.key === 'buy15_1');
+      const sellLine = lines.find((l) => l.key === 'sell15_1');
+      if (buyLine && buyLine.values[mk] === undefined) {
+        const liters = (milkReceived ?? [])
+          .filter((r) => monthKey(r.date) === mk)
+          .reduce((s, r) => s + r.quantityLiters, 0);
+        if (liters > 0) buyLine.values[mk] = +(liters * purchasePrice).toFixed(1);
+      }
+      if (sellLine && sellLine.values[mk] === undefined) {
+        const liters = (milkDelivered ?? [])
+          .filter((d) => monthKey(d.date) === mk)
+          .reduce((s, d) => s + d.quantityLiters, 0);
+        if (liters > 0) sellLine.values[mk] = +(liters * sellPrice).toFixed(1);
+      }
+    });
+
+    return lines;
+  }, [incomes, expenses, milkReceived, milkDelivered, settings]);
+
+  // ── Aggregated totals ──────────────────────────────────────────────────────
+  const totalLitersYear = memberRows.reduce((s, r) => s + r.totalLiters, 0);
+  const yearPrice = priceForMonth(prices ?? [], '2025-01') || settings.milkPurchasePrice || 4.2;
+  const totalIncome = monthSummaries.reduce((s, m) => s + m.income, 0);
+  const totalExpense = monthSummaries.reduce((s, m) => s + m.expense, 0);
+  const totalSurplus = totalIncome - totalExpense;
+  const finalBalance = monthSummaries.length ? monthSummaries[monthSummaries.length - 1].balance : 0;
+  const activeMembers = memberRows.filter((r) => r.totalLiters > 0).length;
+
+  // ── Filtered + sorted rows for display ─────────────────────────────────────
+  const filteredRows = useMemo(() => {
+    let rows = memberRows;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      rows = rows.filter((r) => r.name.toLowerCase().includes(q));
     }
-  };
-
-  const handlePrintFarmerInvoice = async (st: (typeof memberStatements)[0]) => {
-    const member = members.find((m) => m.id === st.memberId);
-    const farmerReceipts = receipts.filter(
-      (r) => r.memberId === st.memberId && monthKey(r.date) === monthFilter,
-    );
-    await printFarmerInvoice({
-      farmerName: st.memberName,
-      farmerPhone: member?.phone,
-      farmerCin: member?.cin,
-      month: monthFilter,
-      receipts: farmerReceipts,
-      monthlyPricePerLiter: priceForMonth(prices, monthFilter),
-      coopName: settings?.coopName || 'تعاونية كوب بوعلا',
-      coopPhone: settings?.phone,
-      coopAddress: settings?.address,
-      logoUrl: settings?.logoUrl,
-      currency,
-      paid: getInvoicePaid(st.memberId),
-      invoiceSeq: memberStatements.findIndex(s => s.memberId === st.memberId) + 1,
-      debt: member?.debt ?? 0,
-    });
-  };
-
-  const handlePrintByMemberId = async (memberId: string, memberName: string) => {
-    setPrintingMemberId(memberId);
-    setInvoiceDialogOpen(false);
-    try {
-      const member = members.find((m) => m.id === memberId);
-      const farmerReceipts = receipts.filter(
-        (r) => r.memberId === memberId && monthKey(r.date) === monthFilter,
-      );
-      const st = memberStatements.find((s) => s.memberId === memberId);
-      const seq = st ? memberStatements.findIndex(s => s.memberId === memberId) + 1 : undefined;
-      await printFarmerInvoice({
-        farmerName: memberName,
-        farmerPhone: member?.phone,
-        farmerCin: member?.cin,
-        month: monthFilter,
-        receipts: farmerReceipts,
-        monthlyPricePerLiter: st?.pricePerLiter ?? priceForMonth(prices, monthFilter),
-        coopName: settings?.coopName || 'تعاونية كوب بوعلا',
-        coopPhone: settings?.phone,
-        coopAddress: settings?.address,
-        logoUrl: settings?.logoUrl,
-        currency,
-        paid: st ? getInvoicePaid(memberId) : false,
-        invoiceSeq: seq,
-        debt: member?.debt ?? 0,
-      });
-    } finally {
-      setPrintingMemberId(null);
+    if (monthFilter !== 'all') {
+      const mi = parseInt(monthFilter.slice(5, 7), 10) - 1;
+      rows = rows.filter((r) => r.monthlyLiters[mi] > 0);
     }
-  };
+    const sorted = [...rows];
+    if (sortKey === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+    else if (sortKey === 'total') sorted.sort((a, b) => b.totalLiters - a.totalLiters);
+    else sorted.sort((a, b) => a.seq - b.seq);
+    return sorted;
+  }, [memberRows, search, monthFilter, sortKey]);
 
-  const handleShareStatement = (st: (typeof memberStatements)[0]) => {
-    const member = members.find((m) => m.id === st.memberId);
-    const phone = member?.phone || settings?.phone;
-    const message = buildFarmerWhatsAppMessage({
-      farmerName: st.memberName,
-      month: monthFilter,
-      totalLiters: st.totalLiters,
-      pricePerLiter: st.pricePerLiter,
-      grossAmount: st.grossAmount,
-      transportCost: st.transportCost,
-      netAmount: st.netAmount,
-      currency,
-      coopName: settings?.coopName || 'تعاونية كوب بوعلا',
-      paid: getInvoicePaid(st.memberId),
+  // ── Chart data ─────────────────────────────────────────────────────────────
+  const productionChartData = MONTH_NAMES_AR_SHORT.map((label, i) => ({
+    name: label,
+    'الإنتاج (لتر)': monthSummaries[i]?.litersReceived || 0,
+  }));
+
+  const incomeExpenseChartData = MONTH_NAMES_AR_SHORT.map((label, i) => ({
+    name: label,
+    'الدخل': +(monthSummaries[i]?.income || 0).toFixed(1),
+    'المصاريف': +(monthSummaries[i]?.expense || 0).toFixed(1),
+  }));
+
+  const expensePieData = financeLines
+    .filter((l) => l.type === 'expense')
+    .map((l) => ({
+      name: l.label,
+      value: Object.values(l.values).reduce((a, b) => a + (b || 0), 0),
+    }))
+    .filter((d) => d.value > 0);
+
+  // ── Export handlers ────────────────────────────────────────────────────────
+  const handleExportPdf = () => {
+    const columns = [
+      { header: '#', key: 'seq' },
+      { header: 'الاسم الكامل', key: 'name' },
+      ...MONTH_NAMES_AR_SHORT.map((m, i) => ({ header: m, key: `m${i}` })),
+      { header: 'المجموع (لتر)', key: 'total' },
+    ];
+    const rows = filteredRows.map((r) => {
+      const o: Record<string, string | number> = { seq: r.seq, name: r.name, total: fmtL(r.totalLiters) };
+      r.monthlyLiters.forEach((v, i) => (o[`m${i}`] = fmtL(v)));
+      return o;
     });
-    shareOnWhatsApp(message, phone);
+    exportToPdf(`تقرير تعاونية ${settings.coopName || 'كوب بوعلا'} — 2025`, columns, rows, 'report-2025');
   };
 
-  const handleShareFarmerReport = () => {
-    if (!farmerReport) return;
-    const member = farmerReport.member;
-    const phone = member.phone || settings?.phone;
-    const debtLine = farmerReport.debt > 0 ? `\n• الديون المخصومة: ${farmerReport.debt.toFixed(2)} ${currency}` : '';
-    const message = `🥛 *${settings?.coopName || 'التعاونية'}*\n📋 كشف حساب — ${monthLabel(monthFilter)}\n━━━━━━━━━━━━━━━━━━━━\n👤 المنخرط: *${member.fullName}*\n\n• مجموع اللترات: *${farmerReport.totalLiters.toFixed(1)} لتر*\n• مبلغ النقل المخصوم: ${farmerReport.transportCost.toFixed(2)} ${currency}${debtLine}\n━━━━━━━━━━━━━━━━━━━━\n✨ *الصافي المستحق: ${farmerReport.netAmount.toFixed(2)} ${currency}*\n\nشكراً على ثقتكم 🙏`;
-    shareOnWhatsApp(message, phone);
-  };
-
-  const handlePrintCompanyInvoice = async (companyName: string) => {
-    const companyDeliveriesRaw = deliveries.filter(
-      (d) => d.companyName === companyName && monthKey(d.date) === monthFilter,
-    );
-    await printCompanyInvoice({
-      companyName,
-      month: monthFilter,
-      deliveries: companyDeliveriesRaw,
-      coopName: settings?.coopName || 'تعاونية كوب بوعلا',
-      coopPhone: settings?.phone,
-      coopAddress: settings?.address,
-      logoUrl: settings?.logoUrl,
-      currency,
-      invoiceSeq: companyDeliveries.findIndex((c) => c.companyName === companyName) + 1,
+  const handleExportExcel = async () => {
+    const columns = [
+      { header: '#', key: 'seq' },
+      { header: 'الاسم الكامل', key: 'name' },
+      ...MONTH_NAMES_AR_SHORT.map((m, i) => ({ header: m, key: `m${i}` })),
+      { header: 'المجموع (لتر)', key: 'total' },
+    ];
+    const rows = filteredRows.map((r) => {
+      const o: Record<string, string | number> = { seq: r.seq, name: r.name, total: r.totalLiters };
+      r.monthlyLiters.forEach((v, i) => (o[`m${i}`] = v));
+      return o;
     });
+    await exportToExcel('تقرير 2025', columns, rows, 'report-2025');
   };
 
-  // ── Export helpers ──
-  const handleExportMembersPdf = () => {
-    exportToPdf(
-      `مستحقات المنخرطين — ${monthLabel(monthFilter)}`,
-      [
-        { header: 'المنخرط', key: 'name' },
-        { header: 'الكمية (ل)', key: 'liters' },
-        { header: 'الثمن/ل', key: 'price' },
-        { header: 'الإجمالي', key: 'gross' },
-        { header: 'النقل', key: 'transport' },
-        { header: 'الصافي', key: 'net' },
-      ],
-      memberStatements.map((st) => ({
-        name: st.memberName,
-        liters: st.totalLiters,
-        price: st.pricePerLiter.toFixed(2),
-        gross: st.grossAmount.toFixed(2),
-        transport: st.transportCost.toFixed(2),
-        net: `${st.netAmount.toFixed(2)} ${currency}`,
-      })),
-      `مستحقات-${monthFilter}`,
-    );
+  const handleWhatsApp = () => {
+    const msg =
+      `📊 تقرير تعاونية ${settings.coopName || 'كوب بوعلا'} — 2025\n` +
+      `الجماعة: بني زروال\n` +
+      `عدد الأعضاء النشطين: ${activeMembers}\n` +
+      `مجموع اللترات: ${fmtL(totalLitersYear)} لتر\n` +
+      `ثمن اللتر: ${fmtM(yearPrice)} ${currSym(settings.currency)}\n\n` +
+      `💰 الملخص المالي:\n` +
+      `الدخل: ${fmtM(totalIncome)} ${currSym(settings.currency)}\n` +
+      `المصاريف: ${fmtM(totalExpense)} ${currSym(settings.currency)}\n` +
+      `الفائض: ${fmtM(totalSurplus)} ${currSym(settings.currency)}\n` +
+      `الرصيد الإجمالي: ${fmtM(finalBalance)} ${currSym(settings.currency)}`;
+    shareOnWhatsApp(msg);
   };
 
-  const handleExportMembersExcel = () => {
-    exportToExcel(
-      `مستحقات ${monthLabel(monthFilter)}`,
-      [
-        { header: 'المنخرط', key: 'name' },
-        { header: 'الكمية (لتر)', key: 'liters' },
-        { header: 'الثمن/لتر', key: 'price' },
-        { header: 'الإجمالي', key: 'gross' },
-        { header: 'اقتطاع النقل', key: 'transport' },
-        { header: 'الصافي', key: 'net' },
-      ],
-      memberStatements.map((st) => ({
-        name: st.memberName,
-        liters: st.totalLiters,
-        price: st.pricePerLiter.toFixed(2),
-        gross: st.grossAmount.toFixed(2),
-        transport: st.transportCost.toFixed(2),
-        net: st.netAmount.toFixed(2),
-      })),
-      `مستحقات-${monthFilter}`,
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
     );
-  };
-
-  const handleExportFarmerPdf = () => {
-    if (!farmerReport) return;
-    exportToPdf(
-      `تقرير المنخرط: ${farmerReport.member.fullName} — ${monthLabel(monthFilter)}`,
-      [
-        { header: 'البيان', key: 'label' },
-        { header: 'القيمة', key: 'value' },
-      ],
-      [
-        { label: 'اسم المنخرط', value: farmerReport.member.fullName },
-        { label: 'اسم المركز', value: settings?.coopName || '' },
-        { label: 'الشهر', value: monthLabel(monthFilter) },
-        { label: 'مجموع اللترات', value: `${farmerReport.totalLiters.toFixed(1)} ل` },
-        { label: 'مبلغ النقل المخصوم', value: `${farmerReport.transportCost.toFixed(2)} ${currency}` },
-        ...(farmerReport.debt > 0 ? [{ label: 'الديون المخصومة', value: `${farmerReport.debt.toFixed(2)} ${currency}` }] : []),
-        { label: 'الصافي المستحق', value: `${farmerReport.netAmount.toFixed(2)} ${currency}` },
-        { label: 'قيمة شراء الحليب', value: `${farmerReport.purchaseValue.toFixed(2)} ${currency}` },
-        { label: 'قيمة بيع الحليب', value: `${farmerReport.sellValue.toFixed(2)} ${currency}` },
-        { label: 'الربح المتوقع للتعاونية', value: `${farmerReport.profit.toFixed(2)} ${currency}` },
-      ],
-      `تقرير-${farmerReport.member.fullName}-${monthFilter}`,
-    );
-  };
-
-  const handleExportFarmerExcel = () => {
-    if (!farmerReport) return;
-    exportToExcel(
-      `تقرير ${farmerReport.member.fullName}`,
-      [
-        { header: 'التاريخ', key: 'date' },
-        { header: 'الكمية (ل)', key: 'qty' },
-        { header: 'الثمن/ل', key: 'price' },
-        { header: 'النقل', key: 'transport' },
-      ],
-      farmerReport.farmerReceipts.map((r) => ({
-        date: r.date,
-        qty: r.quantityLiters,
-        price: r.pricePerLiter ?? priceForMonth(prices, monthFilter),
-        transport: r.transportCost ?? 0,
-      })),
-      `تقرير-${farmerReport.member.fullName}-${monthFilter}`,
-    );
-  };
+  }
 
   return (
     <Layout>
-      {/* ── Farmer search & print dialog ── */}
-      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-        <DialogContent className="max-w-md p-0 gap-0" dir="rtl">
-          <DialogHeader className="px-4 pt-4 pb-2">
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="h-4 w-4" />
-              طباعة فاتورة منخرط — {monthFilter}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              ابحث عن المنخرط باسمه أو جزء منه ثم اضغط عليه لطباعة فاتورته
-            </DialogDescription>
-          </DialogHeader>
-          <Command className="border-t rounded-none" dir="rtl">
-            <CommandInput placeholder="ابحث عن منخرط..." className="h-10" />
-            <CommandList className="max-h-72">
-              <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
-                لا يوجد منخرط بهذا الاسم
-              </CommandEmpty>
-              {allMembersSorted.map((m) => {
-                const hasData = memberStatements.some((st) => st.memberId === m.id);
-                const isPrinting = printingMemberId === m.id;
-                return (
-                  <CommandItem
-                    key={m.id}
-                    value={m.fullName}
-                    onSelect={() => handlePrintByMemberId(m.id, m.fullName)}
-                    className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      {isPrinting ? (
-                        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
-                      ) : (
-                        <Printer className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="truncate font-medium">{m.fullName}</span>
-                    </div>
-                    {hasData ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] shrink-0 bg-emerald-50 text-emerald-700 border-emerald-200"
-                      >
-                        لديه بيانات
-                      </Badge>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        لا بيانات هذا الشهر
-                      </span>
-                    )}
-                  </CommandItem>
-                );
-              })}
-            </CommandList>
-          </Command>
-        </DialogContent>
-      </Dialog>
-
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">الفواتير والكشوفات</h2>
-          <p className="text-muted-foreground mt-1">
-            مستحقات المنخرطين، تسليمات الشركات، وكشف حساب منخرط
-          </p>
+      <div className="space-y-6">
+        {/* ── Header ─────────────────────────────────────────────────────────── */}
+        <div
+          className="rounded-2xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden"
+          style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, ${PURPLE_DARK} 100%)` }}
+        >
+          <div className="relative z-10 text-center">
+            <h1 className="text-2xl md:text-3xl font-black mb-2">
+              📊 {settings.coopName || 'تعاونية كوب بوعلا'}
+            </h1>
+            <p className="opacity-90 text-sm md:text-base">جماعة بني زروال — التقرير السنوي 2025</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+              <HeaderStat label="مجموع اللترات" value={`${fmtL(totalLitersYear)} لتر`} icon={<Droplets className="h-4 w-4" />} />
+              <HeaderStat label="ثمن اللتر" value={`${fmtM(yearPrice)} ${currSym(settings.currency)}`} icon={<Wallet className="h-4 w-4" />} />
+              <HeaderStat label="الأعضاء النشطون" value={`${activeMembers}`} icon={<Filter className="h-4 w-4" />} />
+              <HeaderStat
+                label="الرصيد الإجمالي"
+                value={`${fmtM(finalBalance)} ${currSym(settings.currency)}`}
+                icon={finalBalance >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              />
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <Label className="text-sm font-medium text-muted-foreground">الشهر</Label>
-          <Select value={monthFilter} onValueChange={setMonthFilter}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTH_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+        {/* ── Export bar ─────────────────────────────────────────────────────── */}
+        <div className="flex flex-wrap gap-2 items-center justify-end">
+          <Button variant="outline" onClick={printPage} className="gap-2">
+            <Printer className="h-4 w-4" /> طباعة
+          </Button>
+          <Button variant="outline" onClick={handleExportPdf} className="gap-2">
+            <FileText className="h-4 w-4" /> PDF
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} className="gap-2">
+            <FileSpreadsheet className="h-4 w-4" /> Excel
+          </Button>
+          <Button onClick={handleWhatsApp} className="gap-2">
+            <Send className="h-4 w-4" /> واتساب
+          </Button>
         </div>
-      </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="members">مستحقات المنخرطين</TabsTrigger>
-          <TabsTrigger value="companies">تسليمات الشركات</TabsTrigger>
-          <TabsTrigger value="advanced">كشف حساب منخرط</TabsTrigger>
-        </TabsList>
-
-        {/* ─── TAB: MEMBERS ─── */}
-        <TabsContent value="members">
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <CardTitle>مستحقات المنخرطين — {monthFilter}</CardTitle>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={handleExportMembersPdf}
-                  >
-                    <FileText className="h-3.5 w-3.5" /> PDF
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={handleExportMembersExcel}
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                    onClick={() => setInvoiceDialogOpen(true)}
-                  >
-                    <Search className="h-4 w-4" />
-                    بحث عن منخرط
-                  </Button>
+        {/* ── Filters ────────────────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Filter className="h-5 w-5" /> الفلاتر
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">بحث في الأسماء</Label>
+                <div className="relative">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="ابحث باسم العضو..."
+                    className="pr-9"
+                  />
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">فلترة حسب الشهر</Label>
+                <Select value={monthFilter} onValueChange={setMonthFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الأشهر</SelectItem>
+                    {MONTH_NAMES_AR.map((m, i) => (
+                      <SelectItem key={i} value={`2025-${String(i + 1).padStart(2, '0')}`}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">ترتيب حسب</Label>
+                <Select value={sortKey} onValueChange={(v) => setSortKey(v as typeof sortKey)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="seq">التسلسل</SelectItem>
+                    <SelectItem value="name">الاسم</SelectItem>
+                    <SelectItem value="total">إجمالي اللترات</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Main data grid ─────────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <BarChart3 className="h-5 w-5" /> سجل الأعضاء والإنتاج الشهري 2025
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table className="text-sm">
+                <TableHeader>
+                  <TableRow style={{ background: PURPLE }}>
+                    <TableHead className="text-white sticky right-0 z-20 min-w-[50px] text-center" style={{ background: PURPLE }}>
+                      #
+                    </TableHead>
+                    <TableHead className="text-white sticky right-[50px] z-20 min-w-[180px]" style={{ background: PURPLE }}>
+                      الاسم الكامل
+                    </TableHead>
+                    {MONTH_NAMES_AR_SHORT.map((m) => (
+                      <TableHead key={m} className="text-white text-center min-w-[70px]">
+                        {m}
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-white text-center min-w-[90px]">المجموع (لتر)</TableHead>
+                    <TableHead className="text-white text-center min-w-[70px]">أيام الحضور</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                        لا توجد بيانات. ابدأ بتسجيل استلام الحليب من صفحة «الحليب».
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRows.map((r, ri) => (
+                      <TableRow
+                        key={r.memberId}
+                        style={{ background: ri % 2 === 1 ? ROW_ALT : undefined }}
+                      >
+                        <TableCell className="font-mono text-center sticky right-0 z-10" style={{ background: ri % 2 === 1 ? ROW_ALT : 'inherit' }}>
+                          {r.seq}
+                        </TableCell>
+                        <TableCell className="font-medium sticky right-[50px] z-10" style={{ background: ri % 2 === 1 ? ROW_ALT : 'inherit' }}>
+                          {r.name}
+                        </TableCell>
+                        {r.monthlyLiters.map((v, i) => (
+                          <TableCell
+                            key={i}
+                            className="font-mono text-center"
+                            style={{ background: v === 0 ? CELL_EMPTY : undefined }}
+                          >
+                            {v === 0 ? (
+                              <span className="text-muted-foreground">✗</span>
+                            ) : (
+                              <span>{fmtL(v)}</span>
+                            )}
+                          </TableCell>
+                        ))}
+                        <TableCell className="font-mono text-center font-semibold" style={{ background: TOTAL_BG }}>
+                          {fmtL(r.totalLiters)}
+                        </TableCell>
+                        <TableCell className="font-mono text-center">{r.totalDays}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                  {/* Footer totals row */}
+                  {filteredRows.length > 0 && (
+                    <TableRow style={{ background: TOTAL_BG, fontWeight: 700 }}>
+                      <TableCell className="font-bold text-center sticky right-0 z-10" style={{ background: TOTAL_BG }}>
+                        —
+                      </TableCell>
+                      <TableCell className="font-bold sticky right-[50px] z-10" style={{ background: TOTAL_BG }}>
+                        المجموع الكلي
+                      </TableCell>
+                      {MONTH_KEYS.map((mk, i) => {
+                        const monthTotal = (milkReceived ?? [])
+                          .filter((r) => monthKey(r.date) === mk)
+                          .reduce((s, r) => s + r.quantityLiters, 0);
+                        return (
+                          <TableCell key={i} className="font-mono text-center font-bold">
+                            {fmtL(monthTotal)}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="font-mono text-center font-bold">{fmtL(totalLitersYear)}</TableCell>
+                      <TableCell className="font-mono text-center font-bold">
+                        {filteredRows.reduce((s, r) => s + r.totalDays, 0)}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-xs text-muted-foreground p-3">
+              الخلايا الفارغة (باللون الأحمر الفاتح) تعني عدم تسجيل استلام في ذلك الشهر.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* ── Charts ─────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">📈 الإنتاج الشهري للحليب (لتر)</CardTitle>
             </CardHeader>
             <CardContent>
-              <ZoomableTable title={`مستحقات المنخرطين — ${monthFilter}`} className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>المنخرط</TableHead>
-                      <TableHead>الكمية (ل)</TableHead>
-                      <TableHead>الثمن/ل</TableHead>
-                      <TableHead>الإجمالي</TableHead>
-                      <TableHead>اقتطاع النقل</TableHead>
-                      <TableHead>الصافي</TableHead>
-                      <TableHead>الحالة</TableHead>
-                      <TableHead className="text-center">الإجراءات</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {memberStatements.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                          لا توجد بيانات لهذا الشهر
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      memberStatements.map((st) => {
-                        const paid = getInvoicePaid(st.memberId);
-                        const invoiceId = `${st.memberId}_${monthFilter}`;
-                        const isToggling = togglingId === invoiceId;
-                        return (
-                          <TableRow
-                            key={st.memberId}
-                            className={paid ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}
-                          >
-                            <TableCell className="font-medium">{st.memberName}</TableCell>
-                            <TableCell className="font-mono">
-                              {st.totalLiters.toLocaleString('fr-MA')}
-                            </TableCell>
-                            <TableCell className="font-mono">
-                              {st.pricePerLiter.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="font-mono">
-                              {st.grossAmount.toLocaleString('fr-MA', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="font-mono text-destructive">
-                              {st.transportCost > 0
-                                ? st.transportCost.toLocaleString('fr-MA', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })
-                                : '—'}
-                            </TableCell>
-                            <TableCell className="font-mono font-bold text-primary">
-                              {st.netAmount.toLocaleString('fr-MA', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}{' '}
-                              {currency}
-                            </TableCell>
-                            <TableCell>
-                              {paid ? (
-                                <Badge
-                                  variant="outline"
-                                  className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1 whitespace-nowrap"
-                                >
-                                  <CheckCircle2 className="h-3 w-3" /> مدفوع
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1 whitespace-nowrap"
-                                >
-                                  <XCircle className="h-3 w-3" /> غير مدفوع
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  className="gap-1.5 h-8 bg-primary hover:bg-primary/90 text-primary-foreground whitespace-nowrap"
-                                  onClick={() => handlePrintFarmerInvoice(st)}
-                                >
-                                  <Printer className="h-3.5 w-3.5" />
-                                  فاتورة
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => toggleInvoicePaid(st.memberId)}
-                                  disabled={isToggling}
-                                  className={
-                                    paid
-                                      ? 'h-8 text-xs whitespace-nowrap'
-                                      : 'h-8 text-xs whitespace-nowrap border-emerald-600 text-emerald-600 hover:bg-emerald-50'
-                                  }
-                                >
-                                  {isToggling ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : paid ? (
-                                    'إلغاء الدفع'
-                                  ) : (
-                                    'تحديد كمدفوع'
-                                  )}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => handleShareStatement(st)}
-                                  title="مشاركة عبر واتساب"
-                                >
-                                  <Send className="h-3.5 w-3.5 text-emerald-600" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                    {memberStatements.length > 0 && (
-                      <TableRow className="bg-muted/50 font-bold">
-                        <TableCell>المجموع</TableCell>
-                        <TableCell className="font-mono">
-                          {memberStatements
-                            .reduce((s, st) => s + st.totalLiters, 0)
-                            .toLocaleString('fr-MA')}
-                        </TableCell>
-                        <TableCell></TableCell>
-                        <TableCell className="font-mono">
-                          {memberStatements
-                            .reduce((s, st) => s + st.grossAmount, 0)
-                            .toLocaleString('fr-MA', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                        </TableCell>
-                        <TableCell className="font-mono text-destructive">
-                          {memberStatements
-                            .reduce((s, st) => s + st.transportCost, 0)
-                            .toLocaleString('fr-MA', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                        </TableCell>
-                        <TableCell className="font-mono text-primary">
-                          {totalMembersNet.toLocaleString('fr-MA', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{' '}
-                          {currency}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-xs text-muted-foreground font-normal">
-                            {memberStatements.filter((st) => getInvoicePaid(st.memberId)).length}/
-                            {memberStatements.length} مدفوع
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </ZoomableTable>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={productionChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <RTooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="الإنتاج (لتر)"
+                      stroke={PURPLE}
+                      strokeWidth={2.5}
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* ─── TAB: COMPANIES ─── */}
-        <TabsContent value="companies">
-          <div className="space-y-6">
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { label: 'حليب مستلم', value: stockBalance.receivedLiters, color: 'text-blue-600' },
-                {
-                  label: 'حليب مسلَّم',
-                  value: stockBalance.deliveredLiters,
-                  color: 'text-emerald-600',
-                },
-                {
-                  label: 'الفرق',
-                  value: stockBalance.balanceLiters,
-                  color: stockBalance.balanceLiters >= 0 ? 'text-amber-600' : 'text-destructive',
-                },
-              ].map((s) => (
-                <Card key={s.label}>
-                  <CardContent className="pt-4 text-center">
-                    <div className={`text-2xl font-bold font-mono ${s.color}`}>
-                      {s.value.toLocaleString('fr-MA')} ل
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>تسليمات الشركات — {monthFilter}</CardTitle>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">📊 مقارنة الدخل والمصاريف الشهرية</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={incomeExpenseChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <RTooltip />
+                    <Legend />
+                    <Bar dataKey="الدخل" fill={SUCCESS} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="المصاريف" fill={DANGER} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {expensePieData.length > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">🥧 توزيع المصاريف حسب الفئة</CardTitle>
               </CardHeader>
               <CardContent>
-                <ZoomableTable title={`تسليمات الشركات — ${monthFilter}`} className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>الشركة</TableHead>
-                        <TableHead>الكمية (لتر)</TableHead>
-                        <TableHead>المبلغ الإجمالي</TableHead>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={expensePieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        label={(e) => `${e.name}: ${fmtM(e.value)}`}
+                      >
+                        {expensePieData.map((_, i) => (
+                          <Cell key={i} fill={EXPENSE_PALETTE[i % EXPENSE_PALETTE.length]} />
+                        ))}
+                      </Pie>
+                      <RTooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* ── Financial summary block ────────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Wallet className="h-5 w-5" /> الملخص المالي السنوي 2025
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table className="text-sm">
+                <TableHeader>
+                  <TableRow style={{ background: PURPLE }}>
+                    <TableHead className="text-white sticky right-0 z-20" style={{ background: PURPLE }}>البيان</TableHead>
+                    {MONTH_NAMES_AR_SHORT.map((m) => (
+                      <TableHead key={m} className="text-white text-center min-w-[80px]">{m}</TableHead>
+                    ))}
+                    <TableHead className="text-white text-center min-w-[100px]">المجموع</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {financeLines.map((line, li) => {
+                    const lineTotal = Object.values(line.values).reduce((a, b) => a + (b || 0), 0);
+                    return (
+                      <TableRow key={line.key} style={{ background: li % 2 === 1 ? ROW_ALT : undefined }}>
+                        <TableCell className="font-medium sticky right-0 z-10" style={{ background: li % 2 === 1 ? ROW_ALT : 'inherit' }}>
+                          <span className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={line.type === 'income' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}
+                            >
+                              {line.type === 'income' ? 'دخل' : 'مصروف'}
+                            </Badge>
+                            {line.label}
+                          </span>
+                        </TableCell>
+                        {MONTH_KEYS.map((mk) => {
+                          const v = line.values[mk] || 0;
+                          return (
+                            <TableCell
+                              key={mk}
+                              className="font-mono text-center"
+                              style={{ background: v === 0 ? CELL_EMPTY : undefined }}
+                            >
+                              {v === 0 ? '—' : fmtM(v)}
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="font-mono text-center font-semibold" style={{ background: TOTAL_BG }}>
+                          {fmtM(lineTotal)}
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {companyDeliveries.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                            لا توجد تسليمات لهذا الشهر
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        companyDeliveries.map((d) => (
-                          <TableRow key={d.companyName}>
-                            <TableCell className="font-medium">{d.companyName}</TableCell>
-                            <TableCell className="font-mono font-bold text-emerald-600">
-                              {d.liters.toLocaleString('fr-MA')}
-                            </TableCell>
-                            <TableCell className="font-mono font-bold">
-                              {d.amount.toLocaleString('fr-MA', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}{' '}
-                              {currency}
-                            </TableCell>
-                            <TableCell className="text-left">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1.5 h-7 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
-                                onClick={() => handlePrintCompanyInvoice(d.companyName)}
-                              >
-                                <Printer className="h-3 w-3" />
-                                فاتورة
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                      {companyDeliveries.length > 0 && (
-                        <TableRow className="bg-muted/50 font-bold">
-                          <TableCell>المجموع</TableCell>
-                          <TableCell className="font-mono">
-                            {companyDeliveries.reduce((s, d) => s + d.liters, 0).toLocaleString('fr-MA')}
-                          </TableCell>
-                          <TableCell className="font-mono text-primary">
-                            {totalCompanyAmount.toLocaleString('fr-MA', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}{' '}
-                            {currency}
-                          </TableCell>
-                          <TableCell></TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ZoomableTable>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* ─── TAB: ADVANCED ─── */}
-        <TabsContent value="advanced">
-          <div className="space-y-6">
-            {/* ── Individual farmer report ── */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <CardTitle>التقرير الشهري للمنخرط</CardTitle>
-                  {farmerReport && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={handleExportFarmerPdf}
+                    );
+                  })}
+                  {/* Income totals row */}
+                  <TableRow style={{ background: TOTAL_BG, fontWeight: 800 }}>
+                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: TOTAL_BG }}>مجموع الدخل</TableCell>
+                    {monthSummaries.map((m) => (
+                      <TableCell key={m.monthKey} className="font-mono text-center font-bold" style={{ background: TOTAL_BG }}>
+                        {fmtM(m.income)}
+                      </TableCell>
+                    ))}
+                    <TableCell className="font-mono text-center font-bold" style={{ background: TOTAL_BG }}>
+                      {fmtM(totalIncome)}
+                    </TableCell>
+                  </TableRow>
+                  {/* Expense totals row */}
+                  <TableRow style={{ background: TOTAL_BG, fontWeight: 800 }}>
+                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: TOTAL_BG }}>مجموع المصاريف</TableCell>
+                    {monthSummaries.map((m) => (
+                      <TableCell key={m.monthKey} className="font-mono text-center font-bold" style={{ background: TOTAL_BG }}>
+                        {fmtM(m.expense)}
+                      </TableCell>
+                    ))}
+                    <TableCell className="font-mono text-center font-bold" style={{ background: TOTAL_BG }}>
+                      {fmtM(totalExpense)}
+                    </TableCell>
+                  </TableRow>
+                  {/* Surplus row */}
+                  <TableRow style={{ background: '#FFF3E0', fontWeight: 800 }}>
+                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: '#FFF3E0' }}>الفائض</TableCell>
+                    {monthSummaries.map((m) => (
+                      <TableCell
+                        key={m.monthKey}
+                        className="font-mono text-center font-bold"
+                        style={{ color: m.surplus >= 0 ? SUCCESS : DANGER, background: '#FFF3E0' }}
                       >
-                        <FileText className="h-3.5 w-3.5" /> PDF
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={handleExportFarmerExcel}
+                        {fmtM(m.surplus)}
+                      </TableCell>
+                    ))}
+                    <TableCell
+                      className="font-mono text-center font-bold"
+                      style={{ color: totalSurplus >= 0 ? SUCCESS : DANGER, background: '#FFF3E0' }}
+                    >
+                      {fmtM(totalSurplus)}
+                    </TableCell>
+                  </TableRow>
+                  {/* Running balance row */}
+                  <TableRow style={{ background: '#E8EAF6', fontWeight: 800 }}>
+                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: '#E8EAF6' }}>الرصيد الإجمالي</TableCell>
+                    {monthSummaries.map((m) => (
+                      <TableCell
+                        key={m.monthKey}
+                        className="font-mono text-center font-bold"
+                        style={{ color: m.balance >= 0 ? SUCCESS : DANGER, background: '#E8EAF6' }}
                       >
-                        <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                        onClick={handleShareFarmerReport}
-                      >
-                        <Send className="h-3.5 w-3.5" /> واتساب
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="max-w-sm">
-                  <Label>اختر المنخرط</Label>
-                  <Select value={selectedFarmerIdReport} onValueChange={setSelectedFarmerIdReport}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="اختر منخرطاً..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allMembersSorted.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.fullName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                        {fmtM(m.balance)}
+                      </TableCell>
+                    ))}
+                    <TableCell
+                      className="font-mono text-center font-bold"
+                      style={{ color: finalBalance >= 0 ? SUCCESS : DANGER, background: '#E8EAF6' }}
+                    >
+                      {fmtM(finalBalance)}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
-                {farmerReport && (
-                  <div className="space-y-4 pt-2">
-                    {/* Summary card */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {([
-                        { label: 'اسم المنخرط', value: farmerReport.member.fullName, highlight: false, extra: '' },
-                        { label: 'اسم المركز', value: settings?.coopName || '—', highlight: false, extra: '' },
-                        { label: 'مجموع اللترات', value: `${farmerReport.totalLiters.toFixed(1)} ل`, highlight: true, extra: '' },
-                        { label: 'مبلغ النقل المخصوم', value: `${farmerReport.transportCost.toFixed(2)} ${currency}`, highlight: false, extra: 'text-destructive' },
-                        ...(farmerReport.debt > 0 ? [{ label: 'الديون المخصومة', value: `${farmerReport.debt.toFixed(2)} ${currency}`, highlight: false, extra: 'text-orange-600' }] : []),
-                        { label: 'الصافي المستحق', value: `${farmerReport.netAmount.toFixed(2)} ${currency}`, highlight: true, extra: '' },
-                        { label: 'قيمة شراء الحليب', value: `${farmerReport.purchaseValue.toFixed(2)} ${currency}`, highlight: false, extra: '' },
-                        { label: 'قيمة بيع الحليب', value: `${farmerReport.sellValue.toFixed(2)} ${currency}`, highlight: false, extra: '' },
-                        { label: 'الربح المتوقع للتعاونية', value: `${farmerReport.profit.toFixed(2)} ${currency}`, highlight: false, extra: farmerReport.profit >= 0 ? 'text-emerald-600' : 'text-destructive' },
-                      ] as { label: string; value: string; highlight: boolean; extra: string }[]).map((item) => (
-                        <div
-                          key={item.label}
-                          className={`rounded-lg border p-3 ${item.highlight ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/20'}`}
-                        >
-                          <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-                          <p className={`font-bold text-sm font-mono ${item.highlight ? 'text-primary' : item.extra}`}>
-                            {item.value}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Receipts detail table */}
-                    <ZoomableTable title={`كشف حساب المنخرط — ${monthFilter}`} className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead>التاريخ</TableHead>
-                            <TableHead>الكمية (ل)</TableHead>
-                            <TableHead>الثمن/ل</TableHead>
-                            <TableHead>الإجمالي</TableHead>
-                            <TableHead>النقل</TableHead>
-                            <TableHead>الصافي</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {farmerReport.farmerReceipts
-                            .slice()
-                            .sort((a, b) => a.date.localeCompare(b.date))
-                            .map((r) => {
-                              const price = r.pricePerLiter ?? priceForMonth(prices, monthFilter);
-                              const gross = r.quantityLiters * price;
-                              const transport = r.transportCost ?? 0;
-                              return (
-                                <TableRow key={r.id}>
-                                  <TableCell className="font-mono text-sm" dir="ltr">
-                                    {r.date}
-                                  </TableCell>
-                                  <TableCell className="font-mono">
-                                    {r.quantityLiters.toFixed(1)}
-                                  </TableCell>
-                                  <TableCell className="font-mono">{price.toFixed(2)}</TableCell>
-                                  <TableCell className="font-mono">{gross.toFixed(2)}</TableCell>
-                                  <TableCell className="font-mono text-destructive">
-                                    {transport > 0 ? transport.toFixed(2) : '—'}
-                                  </TableCell>
-                                  <TableCell className="font-mono font-semibold text-primary">
-                                    {(gross - transport).toFixed(2)}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                        </TableBody>
-                      </Table>
-                    </ZoomableTable>
-                  </div>
-                )}
-
-                {selectedFarmerIdReport && !farmerReport && (
-                  <p className="text-center py-8 text-muted-foreground">
-                    لا توجد بيانات لهذا المنخرط في الفترة المحددة
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+        {/* ── Footer note ────────────────────────────────────────────────────── */}
+        <div className="text-center py-4 text-sm text-muted-foreground">
+          <p>تم إنشاء هذا التقرير خصيصاً لتعاونية {settings.coopName || 'كوب بوعلا'} — جماعة بني زروال</p>
+          <p className="mt-1">📅 السنة المالية: 2025 | 👥 عدد الأعضاء النشطين: {activeMembers}</p>
+        </div>
+      </div>
     </Layout>
   );
 }
