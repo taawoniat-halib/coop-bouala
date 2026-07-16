@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { MemberPicker } from '@/components/MemberPicker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/hooks/useSettings';
@@ -294,21 +295,14 @@ export default function Milk() {
                 ) : (
                   <div className="space-y-2">
                     <Label>المنخرط</Label>
-                    <Select
+                    <MemberPicker
+                      options={activeMembers.map((m) => ({ id: m.id, fullName: m.fullName }))}
                       value={receiptForm.memberId}
-                      onValueChange={(val) => setReceiptForm({ ...receiptForm, memberId: val })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر المنخرط" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeMembers.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.fullName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(val) => setReceiptForm({ ...receiptForm, memberId: val })}
+                      placeholder="اختر المنخرط"
+                      searchPlaceholder="ابحث عن منخرط..."
+                      emptyText="لا يوجد منخرط مطابق"
+                    />
                   </div>
                 )}
                 <div className="space-y-2">
