@@ -31,9 +31,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { exportToExcel, exportToPdf, shareOnWhatsApp } from '@/lib/exportUtils';
-import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar, Send } from 'lucide-react';
+import { exportToExcel, exportToPdf, printPage, shareOnWhatsApp } from '@/lib/exportUtils';
+import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar, Send, Droplets, Wallet, TrendingUp, TrendingDown, Users } from 'lucide-react';
 import { ZoomableTable } from '@/components/ZoomableTable';
+
+// ── Color palette (matches the annual report) ──────────────────────────────
+const PURPLE = '#800070';
+const PURPLE_DARK = '#5a005a';
+const ROW_ALT = '#F0F6FF';
+const TOTAL_BG = '#D4EDDA';
+const INCOME_TOTAL_BG = '#C8E6C9';
+const EXPENSE_TOTAL_BG = '#FFCDD2';
+const SURPLUS_BG = '#FFF3CD';
+const BALANCE_BG = '#D1C4E9';
+const DANGER = '#C62828';
+const SUCCESS = '#1B5E20';
+const TEXT_DARK = '#1a1a1a';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const MONTH_OPTIONS = generateMonthOptions(36);
@@ -50,6 +63,18 @@ function fmtM(n: number): string {
 }
 function currSym(c?: string) {
   return c === 'MAD' || c === 'درهم' ? 'درهم' : (c ?? 'درهم');
+}
+
+function HeaderStat({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return (
+    <div className="bg-white/15 rounded-lg p-3 text-center backdrop-blur-sm">
+      <div className="flex items-center justify-center gap-1.5 text-xs opacity-90 mb-1">
+        {icon}
+        {label}
+      </div>
+      <div className="font-mono text-lg md:text-xl font-bold">{value}</div>
+    </div>
+  );
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -655,405 +680,402 @@ export default function MonthlyReport() {
     shareOnWhatsApp(lines.join('\n'));
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── WhatsApp handler for the whole monthly report ─────────────────────
+  function handleWhatsApp() {
+    const lines = [
+      `🥛 *التقرير الشهري — ${monthLabelAr(monthFilter)}*`,
+      `*${settings?.coopName || 'تعاونية كوب بوعلا'}*`,
+      '━━━━━━━━━━━━━━━━━━━━',
+      ...financialRowsData().map((r) => `• ${r.label}: *${r.value}*`),
+      '',
+      'شكراً 🙏',
+    ];
+    shareOnWhatsApp(lines.join('\n'));
+  }
+
+  // ── Print handler (uses the same PDF window) ───────────────────────────
+  function handlePrint() {
+    handlePdf();
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────
   return (
     <Layout>
-      {/* ── Page header ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <BarChart3 className="h-7 w-7 text-primary" />
-            التقارير الشهرية
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            تقرير إجمالي شامل — {monthLabelAr(monthFilter)}
-            {monthPrice > 0 && <span className="mr-2">· ثمن اللتر: <span className="font-semibold text-foreground">{monthPrice.toFixed(2)} {currency}</span></span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <Label className="text-sm font-medium text-muted-foreground whitespace-nowrap">الشهر</Label>
-          <Select value={monthFilter} onValueChange={setMonthFilter}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTH_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* ── Summary cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'مجموع اللترات', val: `${fmtL(G.total) || '0'} لتر`, color: 'text-blue-600' },
-          { label: 'الإجمالي بالدرهم', val: `${G.totalVal.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, color: 'text-amber-700' },
-          { label: 'خصم النقل', val: `${G.deduction > 0 ? G.deduction.toLocaleString('fr-MA', { maximumFractionDigits: 1 }) : '0'} ${currency}`, color: 'text-red-600' },
-          { label: 'الباقي الصافي', val: `${G.net.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, color: 'text-emerald-700' },
-        ].map((card) => (
-          <Card key={card.label} className="shadow-sm">
-            <CardContent className="pt-5 pb-4">
-              <p className="text-xs text-muted-foreground mb-1">{card.label}</p>
-              <p className={`text-xl font-bold font-mono ${card.color}`} dir="ltr">{card.val}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* ── Export buttons ── */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        <Button onClick={handlePdf} className="gap-2 bg-emerald-700 hover:bg-emerald-800">
-          <FileText className="h-4 w-4" /> تصدير PDF وطباعة
-        </Button>
-        <Button variant="outline" onClick={handleExcel} className="gap-2">
-          <FileSpreadsheet className="h-4 w-4" /> تصدير Excel
-        </Button>
-      </div>
-
-      {/* ── Main table ── */}
-      <Card className="mb-6 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            جدول الحليب التفصيلي — {monthLabelAr(monthFilter)}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {memberRows.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              لا توجد بيانات حليب مسجلة لهذا الشهر
+      <div className="space-y-6">
+        {/* ── Purple gradient header (matches annual report) ─────────── */}
+        <div
+          className="rounded-2xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden"
+          style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, ${PURPLE_DARK} 100%)` }}
+        >
+          <div className="relative z-10 text-center">
+            <h1 className="text-2xl md:text-3xl font-black mb-2">
+              📊 {settings?.coopName || 'تعاونية كوب بوعلا'}
+            </h1>
+            <p className="opacity-90 text-sm md:text-base">
+              التقرير الشهري الشامل — {monthLabelAr(monthFilter)} | {monthLabelFr(monthFilter)}
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+              <HeaderStat label="مجموع اللترات" value={`${fmtL(G.total) || '0'} لتر`} icon={<Droplets className="h-4 w-4" />} />
+              <HeaderStat label="الإجمالي بالدرهم" value={`${G.totalVal.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`} icon={<Wallet className="h-4 w-4" />} />
+              <HeaderStat label="عدد المنخرطين" value={`${memberRows.length}`} icon={<Users className="h-4 w-4" />} />
+              <HeaderStat
+                label="الرصيد النهائي"
+                value={`${finalBalance >= 0 ? '+' : ''}${finalBalance.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`}
+                icon={finalBalance >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              />
             </div>
-          ) : (
-            <ZoomableTable title={`جدول الحليب التفصيلي — ${monthLabelAr(monthFilter)}`}>
-            <div className="overflow-x-auto">
-              <Table className="text-[11px] whitespace-nowrap">
-                <TableHeader>
-                  <TableRow className="bg-primary hover:bg-primary">
-                    <TableHead className="text-primary-foreground text-center sticky right-0 bg-primary z-20 w-8">#</TableHead>
-                    <TableHead className="text-primary-foreground sticky right-8 bg-primary z-20 min-w-[130px]">الاسم الكامل</TableHead>
-                    {/* Period 1: days 1-15 */}
-                    {days1to15.map((d) => (
-                      <TableHead key={d} className="text-primary-foreground text-center w-8 px-1 min-w-[28px]">{d}</TableHead>
-                    ))}
-                    {/* Period 1 sum */}
-                    <TableHead className="text-primary-foreground text-center bg-blue-700 px-1 min-w-[44px] border-r-2 border-r-white/30">
-                      مج.ف1<br/><span className="text-[9px]">1-15</span>
-                    </TableHead>
-                    {/* Period 2: days 16-end */}
-                    {days16toEnd.map((d) => (
-                      <TableHead key={d} className={`text-primary-foreground text-center w-8 px-1 min-w-[28px] ${d === 16 ? 'border-r-2 border-r-white/30' : ''}`}>{d}</TableHead>
-                    ))}
-                    {/* Period 2 sum */}
-                    <TableHead className="text-primary-foreground text-center bg-blue-700 px-1 min-w-[44px] border-r-2 border-r-white/30">
-                      مج.ف2<br/><span className="text-[9px]">16+</span>
-                    </TableHead>
-                    {/* Totals */}
-                    <TableHead className="text-primary-foreground text-center bg-amber-600 px-1 min-w-[52px]">مجموع<br/>اللترات</TableHead>
-                    <TableHead className="text-primary-foreground text-center bg-amber-700 px-1 min-w-[60px]">15-1<br/><span className="text-[9px]">({currency})</span></TableHead>
-                    <TableHead className="text-primary-foreground text-center bg-amber-700 px-1 min-w-[60px]">15-2<br/><span className="text-[9px]">({currency})</span></TableHead>
-                    <TableHead className="text-primary-foreground text-center bg-amber-800 px-1 min-w-[66px]">الإجمالي<br/><span className="text-[9px]">({currency})</span></TableHead>
-                    <TableHead className="text-primary-foreground text-center bg-red-700 px-1 min-w-[56px]">النقل<br/><span className="text-[9px]">({currency})</span></TableHead>
-                    <TableHead className="text-primary-foreground text-center bg-orange-700 px-1 min-w-[52px]">الديون<br/><span className="text-[9px]">({currency})</span></TableHead>
-                    <TableHead className="text-primary-foreground text-center bg-red-800 px-1 min-w-[56px]">خصم<br/>النقل</TableHead>
-                    <TableHead className="text-primary-foreground text-center bg-emerald-700 px-1 min-w-[64px]">الباقي<br/>الصافي</TableHead>
-                    <TableHead className="text-primary-foreground text-center px-1 min-w-[72px]">ملاحظات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {memberRows.map((row, ri) => (
-                    <TableRow key={row.memberId} className={ri % 2 === 1 ? 'bg-muted/30' : ''}>
-                      <TableCell className="sticky right-0 bg-background z-10 text-center font-bold text-[10px] px-1">{row.seq}</TableCell>
-                      <TableCell className="sticky right-8 bg-background z-10 font-medium">{row.memberName}</TableCell>
-                      {/* Days 1-15 */}
-                      {days1to15.map((d) => {
-                        const v = row.days.get(d);
-                        return (
-                          <TableCell key={d} className={`text-center px-1 font-mono ${v ? 'text-blue-700 font-medium' : 'text-muted-foreground/20'}`}>
-                            {v ? fmtL(v) : ''}
-                          </TableCell>
-                        );
-                      })}
-                      {/* Period 1 sum */}
-                      <TableCell className="text-center bg-blue-100 font-bold font-mono border-r-2 border-r-muted-foreground/30 text-blue-800">
-                        {fmtL(row.period1Liters) || '—'}
-                      </TableCell>
-                      {/* Days 16-end */}
-                      {days16toEnd.map((d) => {
-                        const v = row.days.get(d);
-                        return (
-                          <TableCell key={d} className={`text-center px-1 font-mono ${d === 16 ? 'border-r-2 border-r-muted-foreground/20' : ''} ${v ? 'text-blue-700 font-medium' : 'text-muted-foreground/20'}`}>
-                            {v ? fmtL(v) : ''}
-                          </TableCell>
-                        );
-                      })}
-                      {/* Period 2 sum */}
-                      <TableCell className="text-center bg-blue-100 font-bold font-mono border-r-2 border-r-muted-foreground/30 text-blue-800">
-                        {fmtL(row.period2Liters) || '—'}
-                      </TableCell>
-                      {/* Grand total liters */}
-                      <TableCell className="text-center bg-amber-50 font-bold font-mono text-amber-900">
-                        {fmtL(row.totalLiters)}
-                      </TableCell>
-                      {/* Values */}
-                      <TableCell className="text-center bg-amber-50/60 font-mono text-[10px]">{fmtM(row.period1Value)}</TableCell>
-                      <TableCell className="text-center bg-amber-50/60 font-mono text-[10px]">{fmtM(row.period2Value)}</TableCell>
-                      <TableCell className="text-center bg-amber-100 font-bold font-mono text-[10px] text-amber-900">{fmtM(row.totalValue)}</TableCell>
-                      {/* Transport, debt, deduction, net */}
-                      <TableCell className="text-center font-mono text-red-600 text-[10px]">
-                        {row.transport > 0 ? fmtM(row.transport) : ''}
-                      </TableCell>
-                      <TableCell className="text-center font-mono text-orange-700 text-[10px]">
-                        {row.debt > 0 ? fmtM(row.debt) : ''}
-                      </TableCell>
-                      <TableCell className="text-center font-bold font-mono text-red-800 text-[10px]">
-                        {row.deduction > 0 ? fmtM(row.deduction) : ''}
-                      </TableCell>
-                      <TableCell className="text-center bg-emerald-50 font-bold font-mono text-emerald-700">
-                        {fmtM(row.net)}
-                      </TableCell>
-                      <TableCell className="text-[10px] text-muted-foreground max-w-[80px] truncate">
-                        {row.notes}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+          </div>
+        </div>
 
-                  {/* ── Grand totals row ── */}
-                  <TableRow className="bg-emerald-100 border-t-2 border-primary font-bold">
-                    <TableCell className="sticky right-0 bg-emerald-100 z-10 text-center" />
-                    <TableCell className="sticky right-8 bg-emerald-100 z-10 font-bold text-xs">مجموع اليوم</TableCell>
-                    {days1to15.map((d) => {
-                      const v = dailyTotals.get(d) ?? 0;
-                      return (
-                        <TableCell key={d} className="text-center font-bold font-mono text-[10px]">
-                          {v > 0 ? fmtL(v) : ''}
-                        </TableCell>
-                      );
-                    })}
-                    <TableCell className="text-center bg-blue-200 font-bold font-mono text-blue-900 border-r-2 border-r-muted-foreground/30">{fmtL(G.p1)}</TableCell>
-                    {days16toEnd.map((d) => {
-                      const v = dailyTotals.get(d) ?? 0;
-                      return (
-                        <TableCell key={d} className={`text-center font-bold font-mono text-[10px] ${d === 16 ? 'border-r-2 border-r-muted-foreground/20' : ''}`}>
-                          {v > 0 ? fmtL(v) : ''}
-                        </TableCell>
-                      );
-                    })}
-                    <TableCell className="text-center bg-blue-200 font-bold font-mono text-blue-900 border-r-2 border-r-muted-foreground/30">{fmtL(G.p2)}</TableCell>
-                    <TableCell className="text-center bg-amber-200 font-bold font-mono text-amber-900">{fmtL(G.total)}</TableCell>
-                    <TableCell className="text-center bg-amber-100 font-bold font-mono text-[10px]">{fmtM(G.p1Val)}</TableCell>
-                    <TableCell className="text-center bg-amber-100 font-bold font-mono text-[10px]">{fmtM(G.p2Val)}</TableCell>
-                    <TableCell className="text-center bg-amber-200 font-bold font-mono text-amber-900">{fmtM(G.totalVal)}</TableCell>
-                    <TableCell className="text-center font-bold font-mono text-red-700">{G.transport > 0 ? fmtM(G.transport) : '—'}</TableCell>
-                    <TableCell className="text-center font-mono text-orange-700">—</TableCell>
-                    <TableCell className="text-center font-bold font-mono text-red-800">{G.deduction > 0 ? fmtM(G.deduction) : '—'}</TableCell>
-                    <TableCell className="text-center bg-emerald-200 font-bold font-mono text-emerald-800">{fmtM(G.net)}</TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-            </ZoomableTable>
-          )}
-        </CardContent>
-      </Card>
+        {/* ── Month selector + Export bar (unified, like annual report) ── */}
+        <div className="flex flex-wrap gap-3 items-center justify-between">
+          <div className="flex items-center gap-3 bg-card border border-border rounded-lg p-1 pl-3">
+            <Calendar className="h-5 w-5 text-primary" />
+            <Label className="text-sm font-medium whitespace-nowrap">الشهر:</Label>
+            <Select value={monthFilter} onValueChange={setMonthFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTH_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            <Button variant="outline" onClick={handlePrint} className="gap-2">
+              <Printer className="h-4 w-4" /> طباعة
+            </Button>
+            <Button variant="outline" onClick={handlePdf} className="gap-2">
+              <FileText className="h-4 w-4" /> PDF
+            </Button>
+            <Button variant="outline" onClick={handleExcel} className="gap-2">
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </Button>
+            <Button onClick={handleWhatsApp} className="gap-2">
+              <Send className="h-4 w-4" /> واتساب
+            </Button>
+          </div>
+        </div>
 
-      {/* ── Bottom section ── */}
-      <div className="grid md:grid-cols-2 gap-6 mb-6">
-
-        {/* Transporter table */}
+        {/* ── Main table ─────────────────────────────────────────────── */}
         <Card className="shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">تكاليف النقل لكل ناقل</CardTitle>
-            <div className="flex gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 gap-1"
-                onClick={handleTransportPdf}
-                disabled={transporterRows.length === 0}
-              >
-                <Printer className="h-3.5 w-3.5" /> طباعة
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 gap-1"
-                onClick={handleTransportExcel}
-                disabled={transporterRows.length === 0}
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                onClick={handleTransportWhatsApp}
-                disabled={transporterRows.length === 0}
-              >
-                <Send className="h-3.5 w-3.5" /> واتساب
-              </Button>
-            </div>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <BarChart3 className="h-5 w-5" /> جدول الحليب التفصيلي — {monthLabelAr(monthFilter)}
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {transporterRows.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground text-sm">لا يوجد ناقلون مرتبطون بمنخرطين هذا الشهر</p>
+            {memberRows.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                لا توجد بيانات حليب مسجلة لهذا الشهر. ابدأ بتسجيل استلام الحليب من صفحة «الحليب».
+              </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>الناقل</TableHead>
-                    <TableHead className="text-center">المنخرطون</TableHead>
-                    <TableHead className="text-center">اللترات</TableHead>
-                    <TableHead className="text-center">التكلفة/ل</TableHead>
-                    <TableHead className="text-center">الإجمالي</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transporterRows.map((tp) => (
-                    <TableRow key={tp.name}>
-                      <TableCell className="font-medium">{tp.name}</TableCell>
-                      <TableCell className="text-center">{tp.memberCount}</TableCell>
-                      <TableCell className="text-center font-mono">{fmtL(tp.totalLiters)}</TableCell>
-                      <TableCell className="text-center font-mono text-xs">{tp.costPerLiter.toFixed(2)}</TableCell>
-                      <TableCell className="text-center font-bold font-mono text-red-600">{fmtM(tp.totalCost)}</TableCell>
+              <ZoomableTable title={`جدول الحليب التفصيلي — ${monthLabelAr(monthFilter)}`}>
+              <div className="overflow-x-auto">
+                <Table className="text-[11px] whitespace-nowrap">
+                  <TableHeader>
+                    <TableRow style={{ background: PURPLE }} className="hover:bg-[#700060]">
+                      <TableHead className="text-white text-center sticky right-0 z-20 w-8" style={{ background: PURPLE }}>#</TableHead>
+                      <TableHead className="text-white sticky right-8 z-20 min-w-[130px]" style={{ background: PURPLE }}>الاسم الكامل</TableHead>
+                      {days1to15.map((d) => (
+                        <TableHead key={d} className="text-white text-center w-8 px-1 min-w-[28px]">{d}</TableHead>
+                      ))}
+                      <TableHead className="text-white text-center px-1 min-w-[44px] border-r-2 border-r-white/30" style={{ background: '#5a0090' }}>
+                        مج.1<br/><span className="text-[9px]">1-15</span>
+                      </TableHead>
+                      {days16toEnd.map((d) => (
+                        <TableHead key={d} className={`text-white text-center w-8 px-1 min-w-[28px] ${d === 16 ? 'border-r-2 border-r-white/30' : ''}`}>{d}</TableHead>
+                      ))}
+                      <TableHead className="text-white text-center px-1 min-w-[44px] border-r-2 border-r-white/30" style={{ background: '#5a0090' }}>
+                        مج.2<br/><span className="text-[9px]">16+</span>
+                      </TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[52px]" style={{ background: '#6a0080' }}>مجموع<br/>اللترات</TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[60px]" style={{ background: '#6a0080' }}>15-1<br/><span className="text-[9px]">({currency})</span></TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[60px]" style={{ background: '#6a0080' }}>15-2<br/><span className="text-[9px]">({currency})</span></TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[66px]" style={{ background: '#4a0060' }}>الإجمالي<br/><span className="text-[9px]">({currency})</span></TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[56px]" style={{ background: '#b00040' }}>النقل<br/><span className="text-[9px]">({currency})</span></TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[52px]" style={{ background: '#c06000' }}>الديون<br/><span className="text-[9px]">({currency})</span></TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[56px]" style={{ background: '#900030' }}>خصم<br/>النقل</TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[64px]" style={{ background: '#1B5E20' }}>الباقي<br/>الصافي</TableHead>
+                      <TableHead className="text-white text-center px-1 min-w-[72px]" style={{ background: PURPLE }}>ملاحظات</TableHead>
                     </TableRow>
-                  ))}
-                  <TableRow className="bg-emerald-50 border-t-2 border-primary font-bold">
-                    <TableCell colSpan={4}>الإجمالي</TableCell>
-                    <TableCell className="text-center font-bold font-mono text-red-700">{fmtM(G.transport)}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {memberRows.map((row, ri) => (
+                      <TableRow key={row.memberId} style={{ background: ri % 2 === 1 ? ROW_ALT : undefined }}>
+                        <TableCell className="sticky right-0 z-10 text-center font-bold text-[10px] px-1" style={{ background: ri % 2 === 1 ? ROW_ALT : 'inherit' }}>{row.seq}</TableCell>
+                        <TableCell className="sticky right-8 z-10 font-medium" style={{ background: ri % 2 === 1 ? ROW_ALT : 'inherit' }}>{row.memberName}</TableCell>
+                        {days1to15.map((d) => {
+                          const v = row.days.get(d);
+                          return (
+                            <TableCell key={d} className="text-center px-1 font-mono" style={{ color: v ? TEXT_DARK : '#ccc' }}>
+                              {v ? fmtL(v) : ''}
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-center font-bold font-mono border-r-2 border-r-muted-foreground/30" style={{ background: '#E8E0F5', color: '#4a0060' }}>
+                          {fmtL(row.period1Liters) || '—'}
+                        </TableCell>
+                        {days16toEnd.map((d) => {
+                          const v = row.days.get(d);
+                          return (
+                            <TableCell key={d} className={`text-center px-1 font-mono ${d === 16 ? 'border-r-2 border-r-muted-foreground/20' : ''}`} style={{ color: v ? TEXT_DARK : '#ccc' }}>
+                              {v ? fmtL(v) : ''}
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-center font-bold font-mono border-r-2 border-r-muted-foreground/30" style={{ background: '#E8E0F5', color: '#4a0060' }}>
+                          {fmtL(row.period2Liters) || '—'}
+                        </TableCell>
+                        <TableCell className="text-center font-bold font-mono" style={{ background: '#F3E5F5', color: TEXT_DARK }}>
+                          {fmtL(row.totalLiters)}
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-[10px]" style={{ color: TEXT_DARK }}>{fmtM(row.period1Value)}</TableCell>
+                        <TableCell className="text-center font-mono text-[10px]" style={{ color: TEXT_DARK }}>{fmtM(row.period2Value)}</TableCell>
+                        <TableCell className="text-center font-bold font-mono text-[10px]" style={{ background: '#F3E5F5', color: TEXT_DARK }}>{fmtM(row.totalValue)}</TableCell>
+                        <TableCell className="text-center font-mono text-[10px]" style={{ color: DANGER }}>
+                          {row.transport > 0 ? fmtM(row.transport) : ''}
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-[10px]" style={{ color: '#c06000' }}>
+                          {row.debt > 0 ? fmtM(row.debt) : ''}
+                        </TableCell>
+                        <TableCell className="text-center font-bold font-mono text-[10px]" style={{ color: DANGER }}>
+                          {row.deduction > 0 ? fmtM(row.deduction) : ''}
+                        </TableCell>
+                        <TableCell className="text-center font-bold font-mono" style={{ background: '#E8F5E9', color: SUCCESS }}>
+                          {fmtM(row.net)}
+                        </TableCell>
+                        <TableCell className="text-[10px] text-muted-foreground max-w-[80px] truncate">
+                          {row.notes}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                    {/* ── Grand totals row ── */}
+                    <TableRow style={{ background: TOTAL_BG, fontWeight: 'bold', borderTop: `2px solid ${PURPLE}` }}>
+                      <TableCell className="sticky right-0 z-10 text-center" style={{ background: TOTAL_BG }} />
+                      <TableCell className="sticky right-8 z-10 font-bold text-xs" style={{ background: TOTAL_BG, color: TEXT_DARK }}>مجموع اليوم</TableCell>
+                      {days1to15.map((d) => {
+                        const v = dailyTotals.get(d) ?? 0;
+                        return (
+                          <TableCell key={d} className="text-center font-bold font-mono text-[10px]" style={{ color: TEXT_DARK }}>
+                            {v > 0 ? fmtL(v) : ''}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center font-bold font-mono border-r-2 border-r-muted-foreground/30" style={{ background: '#D1C4E9', color: '#4a0060' }}>{fmtL(G.p1)}</TableCell>
+                      {days16toEnd.map((d) => {
+                        const v = dailyTotals.get(d) ?? 0;
+                        return (
+                          <TableCell key={d} className={`text-center font-bold font-mono text-[10px] ${d === 16 ? 'border-r-2 border-r-muted-foreground/20' : ''}`} style={{ color: TEXT_DARK }}>
+                            {v > 0 ? fmtL(v) : ''}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center font-bold font-mono border-r-2 border-r-muted-foreground/30" style={{ background: '#D1C4E9', color: '#4a0060' }}>{fmtL(G.p2)}</TableCell>
+                      <TableCell className="text-center font-bold font-mono" style={{ background: '#E1BEE7', color: TEXT_DARK }}>{fmtL(G.total)}</TableCell>
+                      <TableCell className="text-center font-bold font-mono text-[10px]" style={{ color: TEXT_DARK }}>{fmtM(G.p1Val)}</TableCell>
+                      <TableCell className="text-center font-bold font-mono text-[10px]" style={{ color: TEXT_DARK }}>{fmtM(G.p2Val)}</TableCell>
+                      <TableCell className="text-center font-bold font-mono" style={{ background: '#E1BEE7', color: TEXT_DARK }}>{fmtM(G.totalVal)}</TableCell>
+                      <TableCell className="text-center font-bold font-mono" style={{ color: DANGER }}>{G.transport > 0 ? fmtM(G.transport) : '—'}</TableCell>
+                      <TableCell className="text-center font-mono" style={{ color: '#c06000' }}>—</TableCell>
+                      <TableCell className="text-center font-bold font-mono" style={{ color: DANGER }}>{G.deduction > 0 ? fmtM(G.deduction) : '—'}</TableCell>
+                      <TableCell className="text-center font-bold font-mono" style={{ background: '#C8E6C9', color: SUCCESS }}>{fmtM(G.net)}</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+              </ZoomableTable>
             )}
           </CardContent>
         </Card>
 
-        {/* Financial summary */}
+        {/* ── Bottom section: Transport + Financial summary ───────────── */}
+        <div className="grid md:grid-cols-2 gap-6">
+
+          {/* Transporter table */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <BarChart3 className="h-5 w-5" /> تكاليف النقل لكل ناقل
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {transporterRows.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground text-sm">لا توجد ناقلون مرتبطون بمنخرطين هذا الشهر</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow style={{ background: PURPLE }}>
+                      <TableHead className="text-white" style={{ background: PURPLE }}>الناقل</TableHead>
+                      <TableHead className="text-white text-center" style={{ background: PURPLE }}>المنخرطون</TableHead>
+                      <TableHead className="text-white text-center" style={{ background: PURPLE }}>اللترات</TableHead>
+                      <TableHead className="text-white text-center" style={{ background: PURPLE }}>التكلفة/ل</TableHead>
+                      <TableHead className="text-white text-center" style={{ background: PURPLE }}>الإجمالي</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transporterRows.map((tp, ti) => (
+                      <TableRow key={tp.name} style={{ background: ti % 2 === 1 ? ROW_ALT : undefined }}>
+                        <TableCell className="font-medium">{tp.name}</TableCell>
+                        <TableCell className="text-center">{tp.memberCount}</TableCell>
+                        <TableCell className="text-center font-mono">{fmtL(tp.totalLiters)}</TableCell>
+                        <TableCell className="text-center font-mono text-xs">{tp.costPerLiter.toFixed(2)}</TableCell>
+                        <TableCell className="text-center font-bold font-mono" style={{ color: DANGER }}>{fmtM(tp.totalCost)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow style={{ background: TOTAL_BG, fontWeight: 'bold', borderTop: `2px solid ${PURPLE}` }}>
+                      <TableCell colSpan={4} style={{ color: TEXT_DARK }}>الإجمالي</TableCell>
+                      <TableCell className="text-center font-bold font-mono" style={{ color: DANGER }}>{fmtM(G.transport)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Financial summary */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Wallet className="h-5 w-5" /> الملخص المالي الشهري
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-muted-foreground">مجموع اللترات</span>
+                  <span className="font-mono" style={{ color: TEXT_DARK }}>{fmtL(G.total) || '0'} لتر</span>
+                </div>
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-muted-foreground">الإجمالي بالدرهم</span>
+                  <span className="font-mono" style={{ color: TEXT_DARK }}>{G.totalVal.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}</span>
+                </div>
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-muted-foreground">خصم النقل</span>
+                  <span className="font-mono" style={{ color: DANGER }}>- {G.transport.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}</span>
+                </div>
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-muted-foreground">الباقي الصافي للمنخرطين</span>
+                  <span className="font-mono font-bold" style={{ color: SUCCESS }}>{G.net.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}</span>
+                </div>
+                <div className="border-t-2 pt-2 space-y-1.5 mt-2">
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-muted-foreground">مداخيل بيع الحليب</span>
+                    <span className="font-mono" style={{ color: SUCCESS }}>{deliveryIncome.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-muted-foreground">مداخيل أخرى</span>
+                    <span className="font-mono" style={{ color: SUCCESS }}>{otherIncome.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}</span>
+                  </div>
+                  {/* Total income */}
+                  <div className="flex justify-between px-2 py-1.5 rounded" style={{ background: INCOME_TOTAL_BG }}>
+                    <span className="font-bold" style={{ color: TEXT_DARK }}>إجمالي المداخيل</span>
+                    <span className="font-bold font-mono" style={{ color: SUCCESS }}>{totalIncome.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}</span>
+                  </div>
+                  {/* Total expenses */}
+                  <div className="flex justify-between px-2 py-1.5 rounded" style={{ background: EXPENSE_TOTAL_BG }}>
+                    <span className="font-bold" style={{ color: TEXT_DARK }}>إجمالي المصاريف</span>
+                    <span className="font-bold font-mono" style={{ color: DANGER }}>{totalExpenses.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}</span>
+                  </div>
+                  {/* Surplus */}
+                  <div className="flex justify-between px-2 py-1.5 rounded" style={{ background: SURPLUS_BG }}>
+                    <span className="font-bold" style={{ color: TEXT_DARK }}>الفائض</span>
+                    <span className="font-bold font-mono" style={{ color: totalIncome - totalExpenses >= 0 ? SUCCESS : DANGER }}>
+                      {totalIncome - totalExpenses >= 0 ? '+' : ''}{(totalIncome - totalExpenses).toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}
+                    </span>
+                  </div>
+                  {/* Final balance */}
+                  <div className="flex justify-between pt-2 border-t-2 rounded px-3 py-2" style={{ background: BALANCE_BG }}>
+                    <span className="font-bold text-base" style={{ color: TEXT_DARK }}>الرصيد النهائي</span>
+                    <span className="font-bold font-mono text-lg" style={{ color: finalBalance >= 0 ? SUCCESS : DANGER }}>
+                      {finalBalance >= 0 ? '+' : ''}{finalBalance.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Extra expenses ─────────────────────────────────────────── */}
         <Card className="shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">الملخص المالي الشهري</CardTitle>
-            <div className="flex gap-1.5">
-              <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={handleFinancialPdf}>
-                <Printer className="h-3.5 w-3.5" /> طباعة
-              </Button>
-              <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={handleFinancialExcel}>
-                <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                onClick={handleFinancialWhatsApp}
-              >
-                <Send className="h-3.5 w-3.5" /> واتساب
-              </Button>
-            </div>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Plus className="h-5 w-5" /> مصاريف إضافية في التقرير
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-1.5 text-sm">
-              {[
-                { label: 'مجموع اللترات', val: `${fmtL(G.total) || '0'} لتر`, cls: '' },
-                { label: 'الإجمالي بالدرهم', val: `${G.totalVal.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, cls: '' },
-                { label: 'خصم النقل', val: `- ${G.transport.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, cls: 'text-red-600' },
-                { label: 'الباقي الصافي للمنخرطين', val: `${G.net.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, cls: 'font-bold text-emerald-700' },
-              ].map((item) => (
-                <div key={item.label} className="flex justify-between border-b pb-1 last:border-0">
-                  <span className="text-muted-foreground">{item.label}</span>
-                  <span className={`font-mono ${item.cls}`}>{item.val}</span>
-                </div>
-              ))}
-              <div className="border-t-2 pt-2 space-y-1.5">
-                {[
-                  { label: 'مداخيل بيع الحليب', val: `${deliveryIncome.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, cls: 'text-emerald-600' },
-                  { label: 'مداخيل أخرى', val: `${otherIncome.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, cls: 'text-emerald-600' },
-                  { label: 'إجمالي المداخيل', val: `${totalIncome.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, cls: 'font-bold text-emerald-700' },
-                  { label: 'إجمالي المصاريف', val: `${totalExpenses.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} ${currency}`, cls: 'font-bold text-red-600' },
-                ].map((item) => (
-                  <div key={item.label} className="flex justify-between border-b pb-1 last:border-0">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className={`font-mono ${item.cls}`}>{item.val}</span>
-                  </div>
-                ))}
-                <div className={`flex justify-between pt-2 border-t-2 border-primary rounded px-3 py-2 ${finalBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                  <span className="font-bold text-base">الرصيد النهائي</span>
-                  <span className={`font-bold font-mono text-lg ${finalBalance >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                    {finalBalance >= 0 ? '+' : ''}{finalBalance.toLocaleString('fr-MA', { maximumFractionDigits: 1 })} {currency}
-                  </span>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Input
+                placeholder="البيان (الكهرباء، العمال، الصيانة...)"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                className="flex-1 min-w-[200px]"
+              />
+              <Input
+                placeholder="المبلغ"
+                type="number"
+                value={newAmount}
+                onChange={(e) => setNewAmount(e.target.value)}
+                className="w-36"
+                dir="ltr"
+                onKeyDown={(e) => { if (e.key === 'Enter') addExtra(); }}
+              />
+              <Button onClick={addExtra} className="gap-1 shrink-0">
+                <Plus className="h-4 w-4" /> إضافة
+              </Button>
+            </div>
+
+            {monthExpenses.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs text-muted-foreground mb-2">مصاريف مسجلة في الميزانية لهذا الشهر:</p>
+                <div className="space-y-1">
+                  {monthExpenses.map((e) => (
+                    <div key={e.id} className="flex justify-between text-sm bg-muted/40 rounded px-3 py-1.5">
+                      <span>{e.label}</span>
+                      <span className="font-mono" style={{ color: DANGER }}>{e.amount.toLocaleString('fr-MA', { maximumFractionDigits: 2 })} {currency}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
+
+            {extraExpenses.length > 0 && (
+              <div className="space-y-1">
+                {extraExpenses.map((e) => (
+                  <div key={e.id} className="flex justify-between items-center text-sm bg-blue-50 rounded px-3 py-1.5">
+                    <span>{e.label}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono" style={{ color: DANGER }}>{e.amount.toLocaleString('fr-MA', { maximumFractionDigits: 2 })} {currency}</span>
+                      <button onClick={() => removeExtra(e.id)} className="text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {extraExpenses.length === 0 && monthExpenses.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-3">
+                لا توجد مصاريف. يمكن إضافة الكهرباء والعمال والصيانة وغيرها...
+              </p>
+            )}
           </CardContent>
         </Card>
+
+        {/* ── Footer note ────────────────────────────────────────────── */}
+        <div className="text-center py-4 text-sm text-muted-foreground">
+          <p>تم إنشاء هذا التقرير خصيصاً لـ {settings?.coopName || 'تعاونية كوب بوعلا'} — {monthLabelAr(monthFilter)}</p>
+          <p className="mt-1">📅 الشهر: {monthLabelAr(monthFilter)} | 👥 عدد المنخرطين: {memberRows.length}</p>
+        </div>
       </div>
-
-      {/* ── Extra expenses ── */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">مصاريف إضافية في التقرير</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="البيان (الكهرباء، العمال، الصيانة...)"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              className="flex-1"
-            />
-            <Input
-              placeholder="المبلغ"
-              type="number"
-              value={newAmount}
-              onChange={(e) => setNewAmount(e.target.value)}
-              className="w-36"
-              dir="ltr"
-              onKeyDown={(e) => { if (e.key === 'Enter') addExtra(); }}
-            />
-            <Button onClick={addExtra} className="gap-1 shrink-0">
-              <Plus className="h-4 w-4" /> إضافة
-            </Button>
-          </div>
-
-          {monthExpenses.length > 0 && (
-            <div className="mb-3">
-              <p className="text-xs text-muted-foreground mb-2">مصاريف مسجلة في الميزانية لهذا الشهر:</p>
-              <div className="space-y-1">
-                {monthExpenses.map((e) => (
-                  <div key={e.id} className="flex justify-between text-sm bg-muted/40 rounded px-3 py-1.5">
-                    <span>{e.label}</span>
-                    <span className="font-mono text-red-600">{e.amount.toLocaleString('fr-MA', { maximumFractionDigits: 2 })} {currency}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {extraExpenses.length > 0 && (
-            <div className="space-y-1">
-              {extraExpenses.map((e) => (
-                <div key={e.id} className="flex justify-between items-center text-sm bg-blue-50 rounded px-3 py-1.5">
-                  <span>{e.label}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-red-600">{e.amount.toLocaleString('fr-MA', { maximumFractionDigits: 2 })} {currency}</span>
-                    <button onClick={() => removeExtra(e.id)} className="text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {extraExpenses.length === 0 && monthExpenses.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-3">
-              لا توجد مصاريف. يمكنك إضافة الكهرباء والعمال والصيانة وغيرها...
-            </p>
-          )}
-        </CardContent>
-      </Card>
     </Layout>
   );
 }

@@ -13,7 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, CheckCircle2, XCircle, Users, Loader2 } from 'lucide-react';
+import { DEFAULT_MEMBERS } from '@/data/defaultMembers';
 import {
   Dialog,
   DialogContent,
@@ -156,6 +157,9 @@ export default function Members() {
     }
   };
 
+  const [isImporting, setIsImporting] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+
   const handleDeleteConfirmed = async () => {
     if (!deleteCandidateId) return;
     try {
@@ -168,6 +172,56 @@ export default function Members() {
     }
   };
 
+  // ── Bulk import of default members ──
+  const existingNames = useMemo(
+    () => new Set(members.map((m) => m.fullName.trim())),
+    [members],
+  );
+  const membersToImport = useMemo(
+    () => DEFAULT_MEMBERS.filter((m) => !existingNames.has(m.fullName.trim())),
+    [existingNames],
+  );
+
+  const handleBulkImport = async () => {
+    if (membersToImport.length === 0) {
+      toast({ title: 'لا شيء للاستيراد', description: 'جميع المنخرطين موجودون بالفعل.' });
+      setShowImportDialog(false);
+      return;
+    }
+    setIsImporting(true);
+    let added = 0;
+    let failed = 0;
+    for (const m of membersToImport) {
+      try {
+        await add({
+          fullName: m.fullName,
+          cin: '',
+          phone: '',
+          address: '',
+          active: true,
+          debt: 0,
+        });
+        added++;
+      } catch {
+        failed++;
+      }
+    }
+    setIsImporting(false);
+    setShowImportDialog(false);
+    if (failed === 0) {
+      toast({
+        title: 'تم الاستيراد بنجاح',
+        description: `تمت إضافة ${added} منخرط جديد إلى التعاونية.`,
+      });
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'اكتمل الاستيراد مع بعض الأخطاء',
+        description: `تمت إضافة ${added} منخرط، فشل ${failed}.`,
+      });
+    }
+  };
+
   return (
     <Layout>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -177,6 +231,26 @@ export default function Members() {
             إدارة المنخرطين وأعضاء التعاونية ({members.length})
           </p>
         </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <Button
+            variant="outline"
+            onClick={() => setShowImportDialog(true)}
+            className="gap-2"
+            disabled={isImporting || membersToImport.length === 0}
+          >
+            {isImporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Users className="h-4 w-4" />
+            )}
+            استيراد المنخرطين
+            {membersToImport.length > 0 && (
+              <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                {membersToImport.length}
+              </span>
+            )}
+          </Button>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -333,7 +407,55 @@ export default function Members() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* ── Bulk import dialog ── */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>استيراد قائمة المنخرطين</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              سيتم إضافة {membersToImport.length} منخرط جديد إلى التعاونية. المنخرطون الموجودون بالفعل بنفس الاسم لن يتم تكرارهم.
+            </p>
+            {membersToImport.length > 0 && (
+              <div className="max-h-60 overflow-y-auto rounded-lg border border-border p-3 space-y-1">
+                {membersToImport.slice(0, 20).map((m) => (
+                  <div key={m.seq} className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground font-mono w-8">{m.seq}</span>
+                    <span>{m.fullName}</span>
+                  </div>
+                ))}
+                {membersToImport.length > 20 && (
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    ... و {membersToImport.length - 20} منخرط آخر
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={isImporting}>
+                إلغاء
+              </Button>
+              <Button onClick={handleBulkImport} disabled={isImporting || membersToImport.length === 0} className="gap-2">
+                {isImporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    جارٍ الاستيراد...
+                  </>
+                ) : (
+                  <>
+                    <Users className="h-4 w-4" />
+                    استيراد {membersToImport.length} منخرط
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="p-4 border-b border-border bg-muted/20">

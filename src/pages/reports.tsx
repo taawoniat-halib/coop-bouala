@@ -77,11 +77,16 @@ import {
 
 const PURPLE = '#800070';
 const PURPLE_DARK = '#5a005a';
-const ROW_ALT = '#E6F3FF';
-const CELL_EMPTY = '#FFE6E6';
-const TOTAL_BG = '#E6FFE6';
-const DANGER = '#dc3545';
-const SUCCESS = '#28a745';
+const ROW_ALT = '#F0F6FF';
+const CELL_EMPTY = '#FFF0F0';
+const TOTAL_BG = '#D4EDDA';
+const INCOME_TOTAL_BG = '#C8E6C9';
+const EXPENSE_TOTAL_BG = '#FFCDD2';
+const SURPLUS_BG = '#FFF3CD';
+const BALANCE_BG = '#D1C4E9';
+const DANGER = '#C62828';
+const SUCCESS = '#1B5E20';
+const TEXT_DARK = '#1a1a1a';
 
 const EXPENSE_PALETTE = ['#800070', '#4a90d9', '#ff6b35', '#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6f42c1'];
 
@@ -630,13 +635,13 @@ export default function Reports() {
                             style={{ background: v === 0 ? CELL_EMPTY : undefined }}
                           >
                             {v === 0 ? (
-                              <span className="text-muted-foreground">✗</span>
+                              <span style={{ color: '#999' }}>—</span>
                             ) : (
-                              <span>{fmtL(v)}</span>
+                              <span style={{ color: TEXT_DARK }}>{fmtL(v)}</span>
                             )}
                           </TableCell>
                         ))}
-                        <TableCell className="font-mono text-center font-semibold" style={{ background: TOTAL_BG }}>
+                        <TableCell className="font-mono text-center font-semibold" style={{ background: TOTAL_BG, color: TEXT_DARK }}>
                           {fmtL(r.totalLiters)}
                         </TableCell>
                         <TableCell className="font-mono text-center">{r.totalDays}</TableCell>
@@ -646,10 +651,10 @@ export default function Reports() {
                   {/* Footer totals row */}
                   {filteredRows.length > 0 && (
                     <TableRow style={{ background: TOTAL_BG, fontWeight: 700 }}>
-                      <TableCell className="font-bold text-center sticky right-0 z-10" style={{ background: TOTAL_BG }}>
+                      <TableCell className="font-bold text-center sticky right-0 z-10" style={{ background: TOTAL_BG, color: TEXT_DARK }}>
                         —
                       </TableCell>
-                      <TableCell className="font-bold sticky right-[50px] z-10" style={{ background: TOTAL_BG }}>
+                      <TableCell className="font-bold sticky right-[50px] z-10" style={{ background: TOTAL_BG, color: TEXT_DARK }}>
                         المجموع الكلي
                       </TableCell>
                       {MONTH_KEYS.map((mk, i) => {
@@ -657,13 +662,13 @@ export default function Reports() {
                           .filter((r) => monthKey(r.date) === mk)
                           .reduce((s, r) => s + r.quantityLiters, 0);
                         return (
-                          <TableCell key={i} className="font-mono text-center font-bold">
+                          <TableCell key={i} className="font-mono text-center font-bold" style={{ color: TEXT_DARK }}>
                             {fmtL(monthTotal)}
                           </TableCell>
                         );
                       })}
-                      <TableCell className="font-mono text-center font-bold">{fmtL(totalLitersYear)}</TableCell>
-                      <TableCell className="font-mono text-center font-bold">
+                      <TableCell className="font-mono text-center font-bold" style={{ color: TEXT_DARK }}>{fmtL(totalLitersYear)}</TableCell>
+                      <TableCell className="font-mono text-center font-bold" style={{ color: TEXT_DARK }}>
                         {filteredRows.reduce((s, r) => s + r.totalDays, 0)}
                       </TableCell>
                     </TableRow>
@@ -798,76 +803,76 @@ export default function Reports() {
                             <TableCell
                               key={mk}
                               className="font-mono text-center"
-                              style={{ background: v === 0 ? CELL_EMPTY : undefined }}
+                              style={{ background: v === 0 ? CELL_EMPTY : undefined, color: v === 0 ? '#aaa' : TEXT_DARK }}
                             >
                               {v === 0 ? '—' : fmtM(v)}
                             </TableCell>
                           );
                         })}
-                        <TableCell className="font-mono text-center font-semibold" style={{ background: TOTAL_BG }}>
+                        <TableCell className="font-mono text-center font-semibold" style={{ background: TOTAL_BG, color: TEXT_DARK }}>
                           {fmtM(lineTotal)}
                         </TableCell>
                       </TableRow>
                     );
                   })}
                   {/* Income totals row */}
-                  <TableRow style={{ background: TOTAL_BG, fontWeight: 800 }}>
-                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: TOTAL_BG }}>مجموع الدخل</TableCell>
+                  <TableRow style={{ background: INCOME_TOTAL_BG, fontWeight: 800 }}>
+                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: INCOME_TOTAL_BG, color: TEXT_DARK }}>مجموع الدخل</TableCell>
                     {monthSummaries.map((m) => (
-                      <TableCell key={m.monthKey} className="font-mono text-center font-bold" style={{ background: TOTAL_BG }}>
+                      <TableCell key={m.monthKey} className="font-mono text-center font-bold" style={{ background: INCOME_TOTAL_BG, color: SUCCESS }}>
                         {fmtM(m.income)}
                       </TableCell>
                     ))}
-                    <TableCell className="font-mono text-center font-bold" style={{ background: TOTAL_BG }}>
+                    <TableCell className="font-mono text-center font-bold" style={{ background: INCOME_TOTAL_BG, color: SUCCESS }}>
                       {fmtM(totalIncome)}
                     </TableCell>
                   </TableRow>
                   {/* Expense totals row */}
-                  <TableRow style={{ background: TOTAL_BG, fontWeight: 800 }}>
-                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: TOTAL_BG }}>مجموع المصاريف</TableCell>
+                  <TableRow style={{ background: EXPENSE_TOTAL_BG, fontWeight: 800 }}>
+                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: EXPENSE_TOTAL_BG, color: TEXT_DARK }}>مجموع المصاريف</TableCell>
                     {monthSummaries.map((m) => (
-                      <TableCell key={m.monthKey} className="font-mono text-center font-bold" style={{ background: TOTAL_BG }}>
+                      <TableCell key={m.monthKey} className="font-mono text-center font-bold" style={{ background: EXPENSE_TOTAL_BG, color: DANGER }}>
                         {fmtM(m.expense)}
                       </TableCell>
                     ))}
-                    <TableCell className="font-mono text-center font-bold" style={{ background: TOTAL_BG }}>
+                    <TableCell className="font-mono text-center font-bold" style={{ background: EXPENSE_TOTAL_BG, color: DANGER }}>
                       {fmtM(totalExpense)}
                     </TableCell>
                   </TableRow>
                   {/* Surplus row */}
-                  <TableRow style={{ background: '#FFF3E0', fontWeight: 800 }}>
-                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: '#FFF3E0' }}>الفائض</TableCell>
+                  <TableRow style={{ background: SURPLUS_BG, fontWeight: 800 }}>
+                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: SURPLUS_BG, color: TEXT_DARK }}>الفائض</TableCell>
                     {monthSummaries.map((m) => (
                       <TableCell
                         key={m.monthKey}
                         className="font-mono text-center font-bold"
-                        style={{ color: m.surplus >= 0 ? SUCCESS : DANGER, background: '#FFF3E0' }}
+                        style={{ color: m.surplus >= 0 ? SUCCESS : DANGER, background: SURPLUS_BG }}
                       >
                         {fmtM(m.surplus)}
                       </TableCell>
                     ))}
                     <TableCell
                       className="font-mono text-center font-bold"
-                      style={{ color: totalSurplus >= 0 ? SUCCESS : DANGER, background: '#FFF3E0' }}
+                      style={{ color: totalSurplus >= 0 ? SUCCESS : DANGER, background: SURPLUS_BG }}
                     >
                       {fmtM(totalSurplus)}
                     </TableCell>
                   </TableRow>
                   {/* Running balance row */}
-                  <TableRow style={{ background: '#E8EAF6', fontWeight: 800 }}>
-                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: '#E8EAF6' }}>الرصيد الإجمالي</TableCell>
+                  <TableRow style={{ background: BALANCE_BG, fontWeight: 800 }}>
+                    <TableCell className="font-bold sticky right-0 z-10" style={{ background: BALANCE_BG, color: TEXT_DARK }}>الرصيد الإجمالي</TableCell>
                     {monthSummaries.map((m) => (
                       <TableCell
                         key={m.monthKey}
                         className="font-mono text-center font-bold"
-                        style={{ color: m.balance >= 0 ? SUCCESS : DANGER, background: '#E8EAF6' }}
+                        style={{ color: m.balance >= 0 ? SUCCESS : DANGER, background: BALANCE_BG }}
                       >
                         {fmtM(m.balance)}
                       </TableCell>
                     ))}
                     <TableCell
                       className="font-mono text-center font-bold"
-                      style={{ color: finalBalance >= 0 ? SUCCESS : DANGER, background: '#E8EAF6' }}
+                      style={{ color: finalBalance >= 0 ? SUCCESS : DANGER, background: BALANCE_BG }}
                     >
                       {fmtM(finalBalance)}
                     </TableCell>
