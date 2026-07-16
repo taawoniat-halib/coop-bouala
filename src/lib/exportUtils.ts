@@ -65,7 +65,22 @@ export async function exportToExcel(
   rows: Record<string, string | number>[],
   fileName: string,
 ) {
-  const [XLSX, { saveAs }] = await Promise.all([import('xlsx'), import('file-saver')]);
+  const [XLSX, fileSaverMod] = await Promise.all([import('xlsx'), import('file-saver')]);
+
+  // Vite bundles file-saver (CommonJS) as a namespace export, so `saveAs`
+  // is not a direct named export. We resolve it from every possible shape.
+  const saveAs: typeof import('file-saver').saveAs =
+    (fileSaverMod as any).saveAs ??
+    (fileSaverMod as any).default ??
+    (fileSaverMod as any).default?.saveAs ??
+    (fileSaverMod as any).F?.saveAs ??
+    (fileSaverMod as any).F?.default;
+
+  if (typeof saveAs !== 'function') {
+    console.error('exportToExcel: saveAs function not found in file-saver module', fileSaverMod);
+    alert('تعذر تصدير ملف Excel. يرجى المحاولة مرة أخرى.');
+    return;
+  }
 
   // aoa_to_sheet guarantees the header row even when rows is empty
   const headerRow = columns.map((c) => c.header);
