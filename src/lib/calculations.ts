@@ -84,13 +84,16 @@ export const MONTH_NAMES_AR_SHORT = [
 /** "شهر سنة" بالعربية — مثلاً "ماي 2025" */
 export function monthLabel(month: string): string {
   const [y, m] = month.split('-');
-  return `${MONTH_NAMES_AR[parseInt(m, 10) - 1]} ${y}`;
+  const idx = parseInt(m, 10) - 1;
+  const name = Number.isNaN(idx) || idx < 0 || idx > 11 ? 'شهر غير مصنف' : MONTH_NAMES_AR[idx];
+  return `${name} ${y ?? ''}`.trim();
 }
 
 /** اسم الشهر المختصر بالعربية — مثلاً "ماي" */
 export function monthShortLabel(month: string): string {
   const [, m] = month.split('-');
-  return MONTH_NAMES_AR_SHORT[parseInt(m, 10) - 1];
+  const idx = parseInt(m, 10) - 1;
+  return Number.isNaN(idx) || idx < 0 || idx > 11 ? '؟؟' : MONTH_NAMES_AR_SHORT[idx];
 }
 
 /** آخر N شهراً كـ {value, label}، من الأحدث للأقدم */

@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Printer, Send } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -44,12 +44,16 @@ export function TransportPrintDialog({
   currency,
 }: TransportPrintDialogProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
 
   const handlePrint = () => {
     if (!printRef.current) return;
 
-    const printWindow = window.open('', '', 'height=600,width=800');
-    if (!printWindow) return;
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      alert('⚠️ تم حجب النافذة المنبثقة.\nيرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم المحاولة مجدداً.');
+      return;
+    }
 
     const printContent = printRef.current.innerHTML;
     printWindow.document.write(`
@@ -130,6 +134,10 @@ export function TransportPrintDialog({
               .no-print {
                 display: none;
               }
+              @page {
+                margin: 1cm;
+                size: A4;
+              }
             }
           </style>
         </head>
@@ -138,16 +146,29 @@ export function TransportPrintDialog({
             <h2>🚚 سجل تكاليف النقل</h2>
             <div class="date-info">التاريخ: ${dateLabel}</div>
             ${printContent}
+            <div class="total-transport">
+              إجمالي تكاليف النقل: ${totalTransport.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}
+            </div>
           </div>
         </body>
       </html>
     `);
     printWindow.document.close();
+    printWindow.focus();
 
+    // Reliable print trigger: a guard flag prevents double-printing, and we
+    // never close the window automatically — the user closes it after they
+    // confirm the print dialog (some browsers open it asynchronously).
+    const printOnce = () => {
+      if (!(printWindow as unknown as Record<string, unknown>).__p) {
+        (printWindow as unknown as Record<string, unknown>).__p = true;
+        printWindow.print();
+      }
+    };
+    printWindow.onload = () => setTimeout(printOnce, 350);
     setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+      if (!printWindow.closed) printOnce();
+    }, 1500);
   };
 
   const receiptWithTransport = receipts.filter((r) => r.transportCost && r.transportCost > 0);
@@ -167,7 +188,7 @@ export function TransportPrintDialog({
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2 print-btn-transport border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
           <Printer className="h-4 w-4" /> طباعة النقل
@@ -221,8 +242,14 @@ export function TransportPrintDialog({
           )}
         </div>
 
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline">إلغاء</Button>
+        <DialogFooter className="flex gap-2 flex-row-reverse">
+          <Button
+            onClick={handlePrint}
+            className="gap-2 bg-amber-600 hover:bg-amber-700"
+            disabled={receiptWithTransport.length === 0}
+          >
+            <Printer className="h-4 w-4" /> طباعة الآن
+          </Button>
           <Button
             onClick={handleWhatsApp}
             variant="outline"
@@ -231,12 +258,8 @@ export function TransportPrintDialog({
           >
             <Send className="h-4 w-4" /> إرسال عبر واتساب
           </Button>
-          <Button 
-            onClick={handlePrint} 
-            className="gap-2 bg-amber-600 hover:bg-amber-700"
-            disabled={receiptWithTransport.length === 0}
-          >
-            <Printer className="h-4 w-4" /> طباعة الآن
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            إلغاء
           </Button>
         </DialogFooter>
       </DialogContent>

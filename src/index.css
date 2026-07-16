@@ -368,4 +368,19 @@ table tbody td[style*="inherit"]:not([style*="background"]) {
   body {
     background: #fff !important;
   }
+  /* Avoid splitting cards/tables across pages where possible */
+  table, .card, [class*="card"] {
+    page-break-inside: auto;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr, .row-break-avoid {
+    page-break-inside: avoid;
+  }
+  /* Ensure colored header banners still print (browsers drop backgrounds by default) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

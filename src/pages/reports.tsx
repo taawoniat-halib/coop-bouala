@@ -497,7 +497,7 @@ export default function Reports() {
         </div>
 
         {/* ── Year selector + Export bar ─────────────────────────────────── */}
-        <div className="flex flex-wrap gap-3 items-center justify-between">
+        <div className="flex flex-wrap gap-3 items-center justify-between print-hide">
           <div className="flex items-center gap-3 bg-card border border-border rounded-lg p-1 pl-3">
             <Calendar className="h-5 w-5 text-primary" />
             <Label className="text-sm font-medium whitespace-nowrap">السنة:</Label>
@@ -531,7 +531,7 @@ export default function Reports() {
         </div>
         {/* ── Tabbed sections ── */}
         <Tabs defaultValue="data" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-2">
+          <TabsList className="grid w-full grid-cols-3 mb-2 print-hide">
             <TabsTrigger value="data" className="gap-1.5">
               <Users className="h-4 w-4" /> البيانات والفلاتر
             </TabsTrigger>
@@ -546,7 +546,7 @@ export default function Reports() {
           <TabsContent value="data" className="space-y-6 mt-2 focus-visible:outline-none">
 
         {/* ── Filters ────────────────────────────────────────────────────── */}
-        <Card>
+        <Card className="print-hide">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-5 w-5" /> الفلاتر

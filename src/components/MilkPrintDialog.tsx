@@ -1,13 +1,13 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Printer, Send } from 'lucide-react';
+import { Printer, Send, X } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -44,6 +44,7 @@ export function MilkPrintDialog({
   currency,
   coopName = 'تعاونية كوب بوعلا',
 }: MilkPrintDialogProps) {
+  const [open, setOpen] = useState(false);
   const totalQuantity = receipts.reduce((sum, r) => sum + r.quantityLiters, 0);
   const totalGross = receipts.reduce(
     (sum, r) => sum + (r.pricePerLiter ? r.quantityLiters * r.pricePerLiter : 0),
@@ -202,12 +203,10 @@ export function MilkPrintDialog({
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Printer className="h-4 w-4" /> طباعة سجل اليوم
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button variant="outline" className="gap-2" onClick={() => setOpen(true)}>
+        <Printer className="h-4 w-4" /> طباعة سجل اليوم
+      </Button>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -288,6 +287,9 @@ export function MilkPrintDialog({
             className="gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
           >
             <Send className="h-4 w-4" /> إرسال عبر واتساب
+          </Button>
+          <Button onClick={() => setOpen(false)} variant="ghost" className="gap-2">
+            <X className="h-4 w-4" /> إغلاق
           </Button>
         </DialogFooter>
       </DialogContent>

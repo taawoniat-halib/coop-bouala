@@ -31,6 +31,7 @@ import { monthKey } from '@/lib/calculations';
 import { MilkPrintDialog } from '@/components/MilkPrintDialog';
 import { TransportPrintDialog } from '@/components/TransportPrintDialog';
 import { ZoomableTable } from '@/components/ZoomableTable';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function Milk() {
   const { data: receipts, add: addReceipt, remove: removeReceipt } = useMilkReceived();
@@ -67,6 +68,30 @@ export default function Milk() {
     pricePerLiter: '',
   });
   const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false);
+
+  // ── Delete confirmation state ──
+  // Holds the pending receipt/delivery to delete; the ConfirmDialog only
+  // performs the actual removal after the user confirms.
+  type DeleteCandidate =
+    | { kind: 'receipt'; id: string; label: string }
+    | { kind: 'delivery'; id: string; label: string };
+  const [deleteCandidate, setDeleteCandidate] = useState<DeleteCandidate | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteCandidate) return;
+    try {
+      if (deleteCandidate.kind === 'receipt') {
+        await removeReceipt(deleteCandidate.id);
+      } else {
+        await removeDelivery(deleteCandidate.id);
+      }
+      toast({ title: 'تم الحذف', description: 'تم حذف السجل بنجاح.' });
+    } catch (err: unknown) {
+      toast({ variant: 'destructive', title: 'خطأ', description: (err as Error).message });
+    } finally {
+      setDeleteCandidate(null);
+    }
+  };
 
   const currentMonthPrice = dateFilter
     ? prices.find((p) => p.month === monthKey(dateFilter))?.pricePerLiter || 0
@@ -442,7 +467,13 @@ export default function Milk() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => removeReceipt(r.id)}
+                                onClick={() =>
+                                  setDeleteCandidate({
+                                    kind: 'receipt',
+                                    id: r.id,
+                                    label: `${getMemberName(r.memberId)} — ${r.date}`,
+                                  })
+                                }
                                 className="h-8 w-8 hover:bg-destructive/10 text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -588,7 +619,13 @@ export default function Milk() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => removeDelivery(d.id)}
+                                onClick={() =>
+                                  setDeleteCandidate({
+                                    kind: 'delivery',
+                                    id: d.id,
+                                    label: `${d.companyName} — ${d.date}`,
+                                  })
+                                }
                                 className="h-8 w-8 hover:bg-destructive/10 text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -605,6 +642,16 @@ export default function Milk() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ── Confirm delete dialog ── */}
+      <ConfirmDialog
+        open={!!deleteCandidate}
+        title={deleteCandidate?.kind === 'receipt' ? 'حذف سجل الحليب المستلم' : 'حذف تسليم الحليب'}
+        description={`هل أنت متأكد من حذف سجل "${deleteCandidate?.label}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmLabel="حذف"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteCandidate(null)}
+      />
     </Layout>
   );
 }

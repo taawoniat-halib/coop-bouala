@@ -50,7 +50,7 @@ function roleLabel(role?: Role): string {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { appUser, signOut } = useAuth();
   const { settings } = useSettings();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -61,6 +61,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   // Show back button on all pages except home
   const showBackButton = location !== '/';
+
+  // Safe back: if there is browser history, go back; otherwise go to home.
+  // Prevents accidentally leaving the app (e.g. when the page was opened directly).
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate('/');
+    }
+  };
 
   const NavLinks = () => (
     <nav className="flex flex-col gap-1 p-4">
@@ -152,7 +162,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 size="icon"
                 aria-label="رجوع"
-                onClick={() => window.history.back()}
+                onClick={handleBack}
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -189,7 +199,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               variant="ghost"
               size="sm"
               className="gap-1 text-muted-foreground hover:text-foreground -mr-2"
-              onClick={() => window.history.back()}
+              onClick={handleBack}
             >
               <ChevronRight className="h-4 w-4" />
               رجوع
