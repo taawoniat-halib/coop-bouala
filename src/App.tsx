@@ -16,14 +16,24 @@ import MonthlyReport from '@/pages/monthly-report';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Firestore onSnapshot pushes real-time updates, so cached data stays fresh.
+      // Avoid unnecessary refetches that would add load for 10+ concurrent users.
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function Router() {
   return (
     <Switch>
       <Route path="/sign-in" component={SignIn} />
       <Route path="/">
-        <ProtectedRoute roles={['admin']}>
+        <ProtectedRoute roles={['admin', 'accountant']}>
           <Dashboard />
         </ProtectedRoute>
       </Route>

@@ -1,6 +1,6 @@
 import { Layout } from '@/components/Layout';
 import { useSettings } from '@/hooks/useSettings';
-import { useUsers, useMilkDelivered, useInvoices, useMembers } from '@/hooks/useData';
+import { useUsers, useMilkDelivered, useMilkReceived, useInvoices, useMembers } from '@/hooks/useData';
 import { generateMonthOptions, monthKey, monthLabel as monthLabelAr } from '@/lib/calculations';
 import { adminCreateUser } from '@/lib/adminCreateUser';
 import { storage } from '@/lib/firebase';
@@ -56,17 +56,19 @@ export default function SettingsPage() {
   const { settings, loading: settingsLoading, updateSettings } = useSettings();
   const { data: users, loading: usersLoading, update: updateUser, remove: removeUser } = useUsers();
   const { data: deliveries, remove: removeDelivery } = useMilkDelivered();
+  const { data: milkReceived, remove: removeMilkReceived } = useMilkReceived();
   const { data: invoices, remove: removeInvoice } = useInvoices();
   const { data: members } = useMembers();
   const { toast } = useToast();
 
   // ── Data management state ──
-  const [recordType, setRecordType] = useState<'deliveries' | 'invoices'>('deliveries');
+  const [recordType, setRecordType] = useState<'deliveries' | 'invoices' | 'received'>('deliveries');
   const [recordMonth, setRecordMonth] = useState(monthKey(new Date().toISOString().slice(0, 10)));
 
   // ── Confirm dialog state ──
   type PendingDelete =
     | { type: 'delivery'; id: string; label: string }
+    | { type: 'received'; id: string; label: string }
     | { type: 'invoice'; id: string; label: string }
     | { type: 'user'; id: string; label: string };
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
@@ -75,6 +77,10 @@ export default function SettingsPage() {
 
   const filteredDeliveries = deliveries
     .filter((d) => monthKey(d.date) === recordMonth)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const filteredReceived = milkReceived
+    .filter((r) => monthKey(r.date) === recordMonth)
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const filteredInvoices = invoices
@@ -87,6 +93,9 @@ export default function SettingsPage() {
       if (pendingDelete.type === 'delivery') {
         await removeDelivery(pendingDelete.id);
         toast({ title: 'تم الحذف', description: 'تم حذف التسليم بنجاح.' });
+      } else if (pendingDelete.type === 'received') {
+        await removeMilkReceived(pendingDelete.id);
+        toast({ title: 'تم الحذف', description: 'تم حذف سجل الحليب المستلم بنجاح.' });
       } else if (pendingDelete.type === 'invoice') {
         await removeInvoice(pendingDelete.id);
         toast({ title: 'تم الحذف', description: 'تم حذف الفاتورة بنجاح.' });
@@ -558,19 +567,20 @@ export default function SettingsPage() {
             إدارة السجلات <Database className="h-5 w-5" />
           </CardTitle>
           <CardDescription>
-            حذف تسليمات الشركات أو الفواتير الشهرية — استخدم بحذر، لا يمكن التراجع عن الحذف
+            حذف تسليمات الشركات أو الحليب المستلم أو الفواتير الشهرية — استخدم بحذر، لا يمكن التراجع عن الحذف
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
             <div className="space-y-1.5 w-48">
               <Label className="text-xs text-muted-foreground">نوع السجل</Label>
-              <Select value={recordType} onValueChange={(v: 'deliveries' | 'invoices') => setRecordType(v)}>
+              <Select value={recordType} onValueChange={(v: 'deliveries' | 'invoices' | 'received') => setRecordType(v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="deliveries">تسليمات الشركات</SelectItem>
+                  <SelectItem value="received">الحليب المستلم</SelectItem>
                   <SelectItem value="invoices">الفواتير الشهرية</SelectItem>
                 </SelectContent>
               </Select>
@@ -629,6 +639,49 @@ export default function SettingsPage() {
                             className="h-8 w-8 text-destructive hover:bg-destructive/10"
                             onClick={() => setPendingDelete({ type: 'delivery', id: d.id, label: d.companyName })}
                             title="حذف التسليم"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            ) : recordType === 'received' ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>التاريخ</TableHead>
+                    <TableHead>المنخرط</TableHead>
+                    <TableHead>الكمية (لتر)</TableHead>
+                    <TableHead>السعر/لتر</TableHead>
+                    <TableHead>الدهن %</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredReceived.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        لا توجد سجلات حليب مستلم لهذا الشهر
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredReceived.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-mono text-xs">{r.date}</TableCell>
+                        <TableCell className="font-medium">{memberName(r.memberId)}</TableCell>
+                        <TableCell className="font-mono">{r.quantityLiters}</TableCell>
+                        <TableCell className="font-mono">{r.pricePerLiter != null ? r.pricePerLiter.toFixed(2) : '—'}</TableCell>
+                        <TableCell className="font-mono">{r.fat != null ? r.fat : '—'}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => setPendingDelete({ type: 'received', id: r.id, label: `${memberName(r.memberId)} — ${r.date}` })}
+                            title="حذف سجل الحليب المستلم"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -703,14 +756,18 @@ export default function SettingsPage() {
             ? 'حذف التسليم'
             : pendingDelete?.type === 'invoice'
               ? 'حذف الفاتورة'
-              : 'حذف المستخدم'
+              : pendingDelete?.type === 'received'
+                ? 'حذف الحليب المستلم'
+                : 'حذف المستخدم'
         }
         description={
           pendingDelete?.type === 'delivery'
             ? `هل أنت متأكد من حذف تسليم "${pendingDelete.label}"؟ لا يمكن التراجع عن هذا الإجراء.`
             : pendingDelete?.type === 'invoice'
               ? `هل أنت متأكد من حذف فاتورة "${pendingDelete?.label}"؟ سيتم فقدان حالة الدفع لهذا الشهر.`
-              : `هل أنت متأكد من حذف المستخدم "${pendingDelete?.label}"؟`
+              : pendingDelete?.type === 'received'
+                ? `هل أنت متأكد من حذف حليب مستلم "${pendingDelete?.label}"؟ لا يمكن التراجع عن هذا الإجراء.`
+                : `هل أنت متأكد من حذف المستخدم "${pendingDelete?.label}"؟`
         }
         confirmLabel="حذف"
         onConfirm={handleConfirmDelete}

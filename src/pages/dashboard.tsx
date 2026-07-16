@@ -16,7 +16,6 @@ import {
   Users,
   ArrowUpRight,
   ArrowDownRight,
-  TrendingUp,
   Package,
   BadgeDollarSign,
   Scale,

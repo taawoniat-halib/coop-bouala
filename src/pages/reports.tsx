@@ -54,7 +54,6 @@ import {
   Filter,
   Calendar,
   Users,
-  PieChart as PieChartIcon,
 } from 'lucide-react';
 import {
   ResponsiveContainer,

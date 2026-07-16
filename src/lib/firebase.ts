@@ -25,7 +25,7 @@ if (!config.apiKey || !config.projectId) {
   );
 }
 
-export const firebaseApp = getApps().length ? getApp() : initializeApp(config);
+const firebaseApp = getApps().length ? getApp() : initializeApp(config);
 export const auth = getAuth(firebaseApp);
 
 // Offline support: cache reads/writes in IndexedDB so the app keeps working

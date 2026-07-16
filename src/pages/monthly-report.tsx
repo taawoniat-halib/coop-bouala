@@ -11,7 +11,7 @@ import {
 import { useSettings } from '@/hooks/useSettings';
 import { useState, useMemo, useId } from 'react';
 import { format } from 'date-fns';
-import { monthKey, priceForMonth, monthLabel as monthLabelAr, monthLabelFr, generateMonthOptions } from '@/lib/calculations';
+import { monthKey, priceForMonth, monthLabel as monthLabelAr, generateMonthOptions } from '@/lib/calculations';
 import {
   Table,
   TableBody,
@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { exportToExcel, exportToPdf, printPage, shareOnWhatsApp } from '@/lib/exportUtils';
+import { exportToExcel, exportToPdf, shareOnWhatsApp } from '@/lib/exportUtils';
 import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar, Send, Droplets, Wallet, TrendingUp, TrendingDown, Users, Truck, Receipt } from 'lucide-react';
 import { ZoomableTable } from '@/components/ZoomableTable';
 
@@ -455,7 +455,7 @@ export default function MonthlyReport() {
   <div class="hdr-center">
     <div class="hdr-title">${coopName}</div>
     <div class="hdr-subtitle">التقرير الشهري الشامل — Rapport mensuel complet</div>
-    <div class="hdr-month">${monthLabelAr(monthFilter)} | ${monthLabelFr(monthFilter)}</div>
+    <div class="hdr-month">${monthLabelAr(monthFilter)}</div>
   </div>
   <div class="hdr-info">
     <div>مجموع اللترات: <strong>${fmtL(G.total)} لتر</strong></div>
@@ -713,7 +713,7 @@ export default function MonthlyReport() {
               📊 {settings?.coopName || 'تعاونية كوب بوعلا'}
             </h1>
             <p className="opacity-90 text-sm md:text-base">
-              التقرير الشهري الشامل — {monthLabelAr(monthFilter)} | {monthLabelFr(monthFilter)}
+              التقرير الشهري الشامل — {monthLabelAr(monthFilter)}
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
               <HeaderStat label="مجموع اللترات" value={`${fmtL(G.total) || '0'} لتر`} icon={<Droplets className="h-4 w-4" />} />
