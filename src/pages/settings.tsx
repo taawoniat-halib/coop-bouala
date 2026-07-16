@@ -8,6 +8,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { useState, useRef, useEffect } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -225,6 +226,20 @@ export default function SettingsPage() {
         <p className="text-muted-foreground mt-1">إدارة معلومات التعاونية وحسابات المستخدمين</p>
       </div>
 
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="general" className="gap-1.5">
+            <Settings className="h-4 w-4" /> عام
+          </TabsTrigger>
+          <TabsTrigger value="users" className="gap-1.5">
+            <Users className="h-4 w-4" /> المستخدمون
+          </TabsTrigger>
+          <TabsTrigger value="data" className="gap-1.5">
+            <Database className="h-4 w-4" /> السجلات
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general" className="space-y-6 mt-2 focus-visible:outline-none">
       <div className="grid lg:grid-cols-2 gap-6">
         {/* ── General Settings ── */}
         <div className="space-y-6">
@@ -367,7 +382,10 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+        </TabsContent>
 
+        <TabsContent value="users" className="mt-2 focus-visible:outline-none">
         {/* ── User Management ── */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -530,10 +548,11 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </TabsContent>
 
+        <TabsContent value="data" className="mt-2 focus-visible:outline-none">
       {/* ── Data Management (delete records) ── */}
-      <Card className="mt-6">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             إدارة السجلات <Database className="h-5 w-5" />
@@ -673,6 +692,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* ── Confirm Delete Dialog ── */}
       <ConfirmDialog

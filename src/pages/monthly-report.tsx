@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { exportToExcel, exportToPdf, printPage, shareOnWhatsApp } from '@/lib/exportUtils';
-import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar, Send, Droplets, Wallet, TrendingUp, TrendingDown, Users } from 'lucide-react';
+import { Printer, FileText, FileSpreadsheet, Plus, Trash2, BarChart3, Calendar, Send, Droplets, Wallet, TrendingUp, TrendingDown, Users, Truck, Receipt } from 'lucide-react';
 import { ZoomableTable } from '@/components/ZoomableTable';
 
 // ── Color palette (matches the annual report) ──────────────────────────────
@@ -760,6 +761,21 @@ export default function MonthlyReport() {
             </Button>
           </div>
         </div>
+        {/* ── Tabbed sections ── */}
+        <Tabs defaultValue="table" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-2">
+            <TabsTrigger value="table" className="gap-1.5">
+              <Droplets className="h-4 w-4" /> جدول الحليب
+            </TabsTrigger>
+            <TabsTrigger value="transport" className="gap-1.5">
+              <Truck className="h-4 w-4" /> النقل والملخص
+            </TabsTrigger>
+            <TabsTrigger value="expenses" className="gap-1.5">
+              <Receipt className="h-4 w-4" /> المصاريف الإضافية
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="table" className="space-y-6 mt-2 focus-visible:outline-none">
 
         {/* ── Main table ─────────────────────────────────────────────── */}
         <Card className="shadow-sm">
@@ -894,6 +910,9 @@ export default function MonthlyReport() {
             )}
           </CardContent>
         </Card>
+        </TabsContent>
+
+        <TabsContent value="transport" className="space-y-6 mt-2 focus-visible:outline-none">
 
         {/* ── Bottom section: Transport + Financial summary ───────────── */}
         <div className="grid md:grid-cols-2 gap-6">
@@ -1002,6 +1021,9 @@ export default function MonthlyReport() {
             </CardContent>
           </Card>
         </div>
+        </TabsContent>
+
+        <TabsContent value="expenses" className="space-y-6 mt-2 focus-visible:outline-none">
 
         {/* ── Extra expenses ─────────────────────────────────────────── */}
         <Card className="shadow-sm">
@@ -1069,6 +1091,8 @@ export default function MonthlyReport() {
             )}
           </CardContent>
         </Card>
+        </TabsContent>
+        </Tabs>
 
         {/* ── Footer note ────────────────────────────────────────────── */}
         <div className="text-center py-4 text-sm text-muted-foreground">

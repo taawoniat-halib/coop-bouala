@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +53,8 @@ import {
   Wallet,
   Filter,
   Calendar,
+  Users,
+  PieChart as PieChartIcon,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -527,6 +530,21 @@ export default function Reports() {
             </Button>
           </div>
         </div>
+        {/* ── Tabbed sections ── */}
+        <Tabs defaultValue="data" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-2">
+            <TabsTrigger value="data" className="gap-1.5">
+              <Users className="h-4 w-4" /> البيانات والفلاتر
+            </TabsTrigger>
+            <TabsTrigger value="charts" className="gap-1.5">
+              <BarChart3 className="h-4 w-4" /> الرسوم البيانية
+            </TabsTrigger>
+            <TabsTrigger value="finance" className="gap-1.5">
+              <Wallet className="h-4 w-4" /> الملخص المالي
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="data" className="space-y-6 mt-2 focus-visible:outline-none">
 
         {/* ── Filters ────────────────────────────────────────────────────── */}
         <Card>
@@ -681,6 +699,9 @@ export default function Reports() {
             </p>
           </CardContent>
         </Card>
+        </TabsContent>
+
+        <TabsContent value="charts" className="space-y-6 mt-2 focus-visible:outline-none">
 
         {/* ── Charts ─────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -761,6 +782,9 @@ export default function Reports() {
             </Card>
           )}
         </div>
+        </TabsContent>
+
+        <TabsContent value="finance" className="space-y-6 mt-2 focus-visible:outline-none">
 
         {/* ── Financial summary block ────────────────────────────────────── */}
         <Card>
@@ -882,6 +906,8 @@ export default function Reports() {
             </div>
           </CardContent>
         </Card>
+        </TabsContent>
+        </Tabs>
 
         {/* ── Footer note ────────────────────────────────────────────────── */}
         <div className="text-center py-4 text-sm text-muted-foreground">
